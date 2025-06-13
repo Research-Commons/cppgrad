@@ -1,0 +1,99 @@
+# =====================================
+# OS-specific files
+# =====================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# =====================================
+# Build directories
+# =====================================
+build/
+build*/
+*/build/
+*/build*/
+cmake-build-*/
+
+# =====================================
+# CMake-generated files
+# =====================================
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+install_manifest.txt
+
+# Ninja
+.ninja_log
+.ninja_deps
+build.ninja
+rules.ninja
+
+# =====================================
+# Compiled objects and binaries
+# =====================================
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+*.exe
+*.out
+
+# =====================================
+# Logs and test output
+# =====================================
+*.log
+*.test
+Testing/
+test_detail.xml
+
+# =====================================
+# IDEs and editors
+# =====================================
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# CLion and other JetBrains IDEs
+.idea/
+*.iml
+
+# Vim
+*.swp
+*.swo
+
+# Emacs
+*~
+
+# =====================================
+# Miscellaneous
+# =====================================
+
+# Generated coverage or profiling data
+*.gcno
+*.gcda
+*.gcov
+*.profraw
+*.profdata
+
+# Sanitizer logs
+asan.log
+lsan.log
+ubsan.log
+
+# Python virtual environments (if used for tooling)
+.venv/
+env/
+venv/
