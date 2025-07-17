@@ -8,6 +8,8 @@ Because is C++ a compiled language, it needs to be built to run.
 
 ## Build Instructions
 
+>git clone --recurse-submodules https://github.com/Research-Commons/cppgrad.git
+
 ### 1. ArrayFire Dependency
 
 `cppgrad` depends on [ArrayFire](https://arrayfire.com/), a high-performance tensor and matrix library. You can use either:
