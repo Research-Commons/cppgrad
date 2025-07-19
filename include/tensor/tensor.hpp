@@ -24,6 +24,7 @@ namespace cppgrad {
         size_t ndim() const;
         bool requires_grad() const;
         void print() const;
+        void print_grad() const;
 
         //Autograd
         void backward(const af::array& grad_output = af::array());

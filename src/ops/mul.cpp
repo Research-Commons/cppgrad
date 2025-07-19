@@ -15,8 +15,7 @@ namespace cppgrad {
 
         if (out.requires_grad() && out.impl_->grad_fn == nullptr) {
             auto fn = std::make_shared<MulFunction>();
-            fn->inputs = { const_cast<Tensor*>(&a),
-                           const_cast<Tensor*>(&b) };
+            fn->inputs = { a.impl_, b.impl_ };
             out.impl_->grad_fn = fn;   // PIMPL: grad_fn lives in impl_
         }
 

@@ -15,13 +15,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS src/*.cpp)
 
 #will change to a library build layer
-add_executable(cppgrad ${SRC_FILES}
-        include/autograd/autogradmeta.h
-        src/autograd/autogradmeta.cpp
-        include/autograd/function.h
-        src/autograd/function.cpp
-        include/tensor/tensorimpl.h
-        src/tensor/tensorimpl.cpp)
+add_executable(cppgrad ${SRC_FILES})
 
 #-- For cpu build
 target_link_libraries(cppgrad PRIVATE ArrayFire::afcpu)

@@ -18,9 +18,6 @@ namespace cppgrad {
         : impl_(std::move(impl)){}
 
     Tensor::Tensor(const std::vector<size_t>& shape, const std::vector<float>& values, bool requires_grad) {
-        if (shape.empty()) {
-            throw std::invalid_argument("Shape must not be empty");
-        }
 
         af::dim4 dims = to_dim4(shape);
 
@@ -82,6 +79,10 @@ namespace cppgrad {
         af_print(impl_->data_);
     }
 
+    void Tensor::print_grad() const {
+        af_print(impl_->grad_);
+    }
+
     af::array Tensor::data() const{
         return impl_->data_;
     }
@@ -92,22 +93,31 @@ namespace cppgrad {
 
     bool Tensor::requires_grad() const { return impl_->requires_grad_; }
 
-     void Tensor::backward(const af::array &grad_output) {
+     // void Tensor::backward(const af::array &grad_output) {
+     //    if (!requires_grad()) return;
+     //
+     //    af::array grad = grad_output.isempty()
+     //      ? af::constant(1.0f, impl_->data_.dims(), impl_->data_.type())
+     //      : grad_output;
+     //
+     //    // accumulate into the impl’s grad_
+     //    if (impl_->grad_.isempty()) impl_->grad_ = grad;
+     //    else impl_->grad_ += grad;
+     //
+     //    // recurse via the stored Function node
+     //    if (impl_->grad_fn) {
+     //        impl_->grad_fn->apply(grad);
+     //    }
+     // }
+
+    void Tensor::backward(const af::array &grad_output) {
         if (!requires_grad()) return;
-
-        af::array grad = grad_output.isempty()
-          ? af::constant(1.0f, impl_->data_.dims(), impl_->data_.type())
-          : grad_output;
-
-        // accumulate into the impl’s grad_
-        if (impl_->grad_.isempty()) impl_->grad_ = grad;
-        else impl_->grad_ += grad;
-
-        // recurse via the stored Function node
-        if (impl_->grad_fn) {
-            impl_->grad_fn->apply(grad);
-        }
-     }
+        // seed the root gradient
+        impl_->grad_ = af::constant(1, impl_->data_.dims());
+        // then kick off the chain
+        if (impl_->grad_fn)
+            impl_->grad_fn->apply(impl_->grad_);
+    }
 
 
 } // namespace cppgrad
