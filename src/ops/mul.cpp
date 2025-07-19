@@ -1,19 +1,24 @@
 #include "ops/mul.h"
 #include <stdexcept>
 
+#include "autograd/function.h"
+
 namespace cppgrad {
-    Tensor mul(const Tensor& a, const Tensor& b) {
-        //use for backwards later
-    }
+
 
     Tensor operator*(const Tensor& a, const Tensor& b) {
         //will change this once broadcasting is implemented, for now it will throw and error if shape doesnt match
         if (a.shape() != b.shape())
             throw std::runtime_error("Shape mismatch in add");
 
-        Tensor out(a.data_ * b.data_, a.requires_grad() || b.requires_grad());
+        Tensor out(a.data() * b.data(), a.requires_grad() || b.requires_grad());
 
-        //use for backwards later
+        if (out.requires_grad() && out.impl_->grad_fn == nullptr) {
+            auto fn = std::make_shared<MulFunction>();
+            fn->inputs = { const_cast<Tensor*>(&a),
+                           const_cast<Tensor*>(&b) };
+            out.impl_->grad_fn = fn;   // PIMPL: grad_fn lives in impl_
+        }
 
         return out;
     }

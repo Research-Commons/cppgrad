@@ -1,5 +1,5 @@
 #pragma once
-#include "tensor.hpp"
+#include "tensor/tensor.hpp"
 #include <vector>
 
 namespace cppgrad {

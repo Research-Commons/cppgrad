@@ -1,19 +1,23 @@
 #include "ops/add.h"
+#include "autograd/function.h"
 #include <stdexcept>
 
 namespace cppgrad {
-    Tensor add(const Tensor& a, const Tensor& b) {
-        //use for backwards later
-    }
 
     Tensor operator+(const Tensor& a, const Tensor& b) {
         //will change this once broadcasting is implemented, for now it will throw and error if shape doesnt match
         if (a.shape() != b.shape())
-            throw std::runtime_error("Shape mismatch in add");
+            throw std::runtime_error("shape mismatch");
 
-        Tensor out(a.data_ + b.data_, a.requires_grad() || b.requires_grad());
+        Tensor out(a.data() + b.data(),
+                   a.requires_grad() || b.requires_grad());
 
-        //use for backwards later
+        if (out.requires_grad()) {
+            auto fn = std::make_shared<AddFunction>();
+            fn->inputs = { const_cast<Tensor*>(&a),
+                           const_cast<Tensor*>(&b) };
+            out.impl_->grad_fn = fn;   // PIMPL: grad_fn lives in impl_
+        }
 
         return out;
     }

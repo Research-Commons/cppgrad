@@ -1,8 +1,12 @@
 #pragma once
 #include <vector>
 #include <arrayfire.h>
+#include <memory>
+#include "tensor/tensorimpl.h"
 
 namespace cppgrad {
+
+    class Function;
 
     class Tensor {
     public:
@@ -18,14 +22,20 @@ namespace cppgrad {
         std::vector<size_t> shape() const;
         size_t numel() const;
         size_t ndim() const;
-        bool requires_grad() const { return requires_grad_; }
+        bool requires_grad() const;
         void print() const;
 
-        //Variables
-        bool requires_grad_ = false;
+        //Autograd
+        void backward(const af::array& grad_output = af::array());
+
+        af::array data() const;
+        af::array grad() const;
 
     private:
-        af::array data_;
+        std::shared_ptr<TensorImpl> impl_;
+
+        // Private constructor that takes ownership of an Impl
+        Tensor(std::shared_ptr<TensorImpl> impl);
 
         Tensor(const af::array& arr, bool requires_grad = true);
 
