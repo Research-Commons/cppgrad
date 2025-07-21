@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 #-- if you want to build third_party/arrayfire from source
 add_subdirectory(third_party/arrayfire)
+# Add Catch2 submodule
+add_subdirectory(third_party/Catch2)
 
 #-- if you want to use pre built binaries for ArrayFire
 #find_package(ArrayFire REQUIRED)
@@ -15,14 +17,18 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS src/*.cpp)
 
 #will change to a library build layer
-add_executable(cppgrad ${SRC_FILES})
+#add_executable(cppgrad ${SRC_FILES})
+
+add_library(cppgrad STATIC ${SRC_FILES})
 
 #-- For cpu build
-target_link_libraries(cppgrad PRIVATE ArrayFire::afcpu)
+target_link_libraries(cppgrad PUBLIC ArrayFire::afcpu) #change to afcuda for cuda build
 
-#-- For cuda build ( make sure to have cuda installed first )
-#target_link_libraries(cppgrad PRIVATE ArrayFire::afcuda)
+target_include_directories(cppgrad PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
-#-- ignoring this for now, will build it later once tensor class is properly implemented
-# add_executable(test_xor examples/xor_train.cpp)
-# target_link_libraries(test_xor PRIVATE cppgrad)
+enable_testing()
+
+#-- Add examples and tests folders
+add_subdirectory(examples)
+add_subdirectory(test)
+

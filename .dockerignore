@@ -1,0 +1,37 @@
+# Ignore CMake build directories
+cmake-build-debug/
+cmake-build-release/
+build/
+
+# Ignore CMake-generated files
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+*.cmake
+
+# Ignore IDE/editor settings
+.vscode/
+.idea/
+
+# Ignore Git metadata
+.git/
+.gitmodules
+
+# Ignore backup and temp files
+*.swp
+*.swo
+*~
+*.tmp
+
+# Ignore compiled object files and libraries
+*.o
+*.a
+*.so
+*.so.*
+*.dll
+*.exe
+*.out
+
+# Ignore logs
+*.log
