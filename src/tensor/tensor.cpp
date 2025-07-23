@@ -1,8 +1,10 @@
-#include "../../include/tensor/tensor.hpp"
+#include "tensor/tensor.hpp"
+
+#include <iostream>
 #include <stdexcept>
 #include <utility>
 
-#include "autograd/function.h"
+#include "autograd/function.hpp"
 
 namespace cppgrad {
 
@@ -60,7 +62,7 @@ namespace cppgrad {
     }
 
     std::vector<size_t> Tensor::shape() const {
-        af::dim4 dims = impl_->data_.dims();
+        af::dim4 dims = impl_->data().dims();
         std::vector<size_t> out;
         for (int i = 0; i < 4 && dims[i] > 1; ++i)
             out.push_back(dims[i]);
@@ -68,32 +70,82 @@ namespace cppgrad {
     }
 
     size_t Tensor::numel() const {
-        return impl_->data_.elements();
+        return impl_->data().elements();
     }
 
     size_t Tensor::ndim() const {
-        return impl_->data_.numdims();
+        return impl_->data().numdims();
     }
 
     void Tensor::print() const {
-        af_print(impl_->data_);
+        af_print(impl_->data());
+    }
+
+    void Tensor::print_pretty() const {
+        af::array data = impl_->data();
+        std::vector<float> host(data.elements());
+        data.host(host.data());
+
+        std::cout << "Tensor(shape=[";
+        af::dim4 dims = data.dims();
+        for (int i = 0; i < data.numdims(); ++i) {
+            std::cout << dims[i];
+            if (i < data.numdims() - 1)
+                std::cout << ", ";
+        }
+        std::cout << "], values=";
+
+        if (data.elements() == 1) {
+            std::cout << host[0];
+        } else {
+            std::cout << "[";
+            for (size_t i = 0; i < host.size(); ++i) {
+                std::cout << host[i];
+                if (i < host.size() - 1)
+                    std::cout << ", ";
+            }
+            std::cout << "]";
+        }
+
+        std::cout << ")\n";
     }
 
     void Tensor::print_grad() const {
-        af_print(impl_->grad_);
+        if (requires_grad()) {
+            af_print(impl_->grad());
+        } else {
+            af::array empty;
+            af_print(empty);
+        }
     }
 
     af::array Tensor::data() const{
-        return impl_->data_;
+        return impl_->data();
     }
 
-    af::array Tensor::grad() const{
-        return impl_->grad_;
+    std::shared_ptr<TensorImpl> Tensor::impl() const {
+        return impl_;
     }
 
-    bool Tensor::requires_grad() const { return impl_->requires_grad_; }
+    af::array Tensor::grad() const {
+        if (!requires_grad() || !impl_->has_autograd()) {
+            #ifndef NDEBUG
+                std::cerr << "[warning] grad() called on tensor with no grad.\n";
+            #endif
+            return {}; // Empty and safe
+        }
+        return impl_->grad();
+    }
 
-     // void Tensor::backward(const af::array &grad_output) {
+    bool Tensor::requires_grad() const { return impl_->requires_grad(); }
+
+    void Tensor::zero_grad() const {
+        if (requires_grad() && impl_->has_autograd()) {
+            impl_->grad() = af::constant(0.0f, impl_->data().dims(), impl_->data().type());
+        }
+    }
+
+    // void Tensor::backward(const af::array &grad_output) {
      //    if (!requires_grad()) return;
      //
      //    af::array grad = grad_output.isempty()
@@ -111,12 +163,24 @@ namespace cppgrad {
      // }
 
     void Tensor::backward(const af::array &grad_output) {
-        if (!requires_grad()) return;
+        if (!requires_grad() || !impl_->has_autograd()) {
+            throw std::runtime_error("You are calling backward on tensor which does not require gradient");
+        }
+
+        // Check if this tensor already has a grad
+        if (impl_->has_called_backward()) {
+            #ifndef NDEBUG
+                std::cerr << "[debug] backward() called more than once on the same tensor\n";
+            #endif
+        }
+
+        impl_->set_has_called_backward(true);
+
         // seed the root gradient
-        impl_->grad_ = af::constant(1, impl_->data_.dims());
+        impl_->grad() = af::constant(1, impl_->data().dims());
         // then kick off the chain
-        if (impl_->grad_fn)
-            impl_->grad_fn->apply(impl_->grad_);
+        if (impl_->grad_fn())
+            impl_->grad_fn()->apply(impl_->grad());
     }
 
 

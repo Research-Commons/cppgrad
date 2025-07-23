@@ -9,6 +9,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
         cmake \
+        gdb \
         git \
         wget \
         curl \
@@ -33,7 +34,7 @@ WORKDIR /cppgrad
 COPY . .
 
 # Optional: Set default build type
-ARG BUILD_TYPE=Debug
+ARG BUILD_TYPE=Release
 
 # Create build directory and build cppgrad
 RUN mkdir build

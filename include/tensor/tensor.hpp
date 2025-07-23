@@ -2,7 +2,7 @@
 #include <vector>
 #include <arrayfire.h>
 #include <memory>
-#include "tensor/tensorimpl.h"
+#include "tensor/tensorimpl.hpp"
 
 namespace cppgrad {
 
@@ -23,7 +23,9 @@ namespace cppgrad {
         size_t numel() const;
         size_t ndim() const;
         bool requires_grad() const;
+        void zero_grad() const;
         void print() const;
+        void print_pretty() const;
         void print_grad() const;
 
         //Autograd
@@ -35,14 +37,24 @@ namespace cppgrad {
     private:
         std::shared_ptr<TensorImpl> impl_;
 
+    public:
+        std::shared_ptr<TensorImpl> impl() const;
+
+    private:
         // Private constructor that takes ownership of an Impl
         Tensor(std::shared_ptr<TensorImpl> impl);
-
         Tensor(const af::array& arr, bool requires_grad = true);
 
+        //Tensor ops implemented in another file for better readability
         friend Tensor operator+(const Tensor&, const Tensor&);
         friend Tensor operator-(const Tensor&, const Tensor&);
         friend Tensor operator*(const Tensor&, const Tensor&);
+        friend Tensor operator+(const Tensor& lhs, float scalar);
+        friend Tensor operator+(float scalar, const Tensor& rhs);
+        friend Tensor operator*(const Tensor& lhs, float scalar);
+        friend Tensor operator*(float scalar, const Tensor& rhs);
+
+        friend class TensorUtils;
     };
 
 } // namespace cppgrad

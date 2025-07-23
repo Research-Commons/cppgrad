@@ -1,4 +1,0 @@
-#ifndef AUTOGRADMETA_H
-#define AUTOGRADMETA_H
-
-#endif //AUTOGRADMETA_H

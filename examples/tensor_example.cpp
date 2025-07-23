@@ -1,4 +1,5 @@
 #include "tensor/tensor.hpp"
+#include "tensor/tensorutils.hpp"
 #include <iostream>
 
 using namespace cppgrad;
@@ -131,6 +132,105 @@ int main() {
         Tensor c = b * Tensor::full({}, 5.0, true);
         c.backward();
         a.print_grad();  // 20.0
+    }
+
+    std::cout << "\nTest 9: Throw debug only warning if backward called twice\n";
+    {
+        Tensor a = Tensor::full({}, 2.0, true);
+        Tensor b = Tensor::full({}, 2.0, true);
+
+        Tensor c = a * b;
+
+        c.backward();
+        c.backward(); // this will throw [debug] backward() called more than once on the same tensor in debug mode
+
+        //This is only a warning as we anyway set gradient to 1 during backward call
+    }
+
+    std::cout << "\nTest 10: Throw debug only warning if backward called twice\n";
+    {
+        Tensor a = Tensor::full({}, 2.0, true);
+        Tensor b = Tensor::full({}, 3.0, true);
+        Tensor c = a * b;    // b = 6
+        c.backward();
+        a.print_grad(); // → prints 3
+
+        b.backward();
+        a.print_grad();
+    }
+
+    std::cout << "\nTest 11: Better print function\n";
+    {
+        Tensor a = Tensor::full({}, 2.0, true);
+        a.print_pretty();
+    }
+
+    std::cout << "\nTest 12: Scalar Add\n";
+    {
+        Tensor a = Tensor::full({2, 1}, 2.0, true);
+
+        Tensor b = a + 5.f;
+        Tensor c = 5.f + b;
+
+        c.backward(); // 1
+
+        a.print_grad();
+
+        b.print();
+        c.print();
+    }
+
+    std::cout << "\nTest 13: Scalar Mul\n";
+    {
+        Tensor a = Tensor::full({2, 1}, 2.0, true);
+
+        Tensor b = a * 5.f;
+        Tensor c = 5.f * b;
+
+        c.backward(); // 25
+
+        a.print_grad();
+
+        b.print();
+        c.print();
+    }
+
+    std::cout << "Test 14: Clone Test:\n";
+    {
+        Tensor a = Tensor::full({2, 2}, 3.0f, true);
+
+        // Just copy data, no gradient tracking
+        Tensor b = TensorUtils::clone(a);
+
+        a.print_pretty();
+        b.print_pretty();
+
+        //b.backward(); // this will throw an error cuz no autograd
+    }
+
+    std::cout << "\n\nTest 15: Clone Test With Autograd:\n";
+    {
+        // Original tensor `a`
+        Tensor a = Tensor::full({2, 2}, 3.0f, true);  // requires_grad = true
+
+        // Clone it
+        Tensor b = TensorUtils::clone_with_grad(a);
+
+        // Operate on clone
+        Tensor c = b * 2.0f;
+
+        // Backward pass
+        c.backward();
+
+        // Output values and gradients
+        std::cout << "a:\n"; a.print();
+        std::cout << "a.grad:\n"; a.print_grad();
+
+        std::cout << "b:\n"; b.print();
+        std::cout << "b.grad:\n"; b.print_grad();
+
+        std::cout << "c:\n"; c.print();
+        std::cout << "c.grad:\n"; c.print_grad();
     }
 
     return 0;

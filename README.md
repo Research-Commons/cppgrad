@@ -60,3 +60,74 @@ make -j8 # or whatever you want
 ```
 
 or just use your IDE to build it
+
+---
+
+## VSCode Support
+
+You can use the following configuration files for a smooth development experience with Visual Studio Code. Tune it to your requirements
+
+### `.vscode/launch.json (for debugging cppgrad)`
+
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Tensor Example",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/examples/tensor_example",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+### `.vscode/tasks.json (Cntrl + Shift + P -> Run tasks -> Select what you want`
+
+```json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build cppgrad",
+      "type": "shell",
+      "command": "cmake --build build --target all -j",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Tensor Example",
+      "type": "shell",
+      "command": "./build/examples/tensor_example",
+      "group": {
+        "kind": "none",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Run Tests",
+      "type": "shell",
+      "command": "./build/test/cppgrad_test",
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      }
+    }
+  ]
+}
+```
