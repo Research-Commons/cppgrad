@@ -1,0 +1,31 @@
+{
+  "name": "cppgrad-dev",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "..",
+    "args": {
+      "BUILD_TYPE": "Release"   // Overrides the BUILD_TYPE variable from dockerfile
+    }
+  },
+  "workspaceFolder": "/cppgrad",
+  "customizations": {
+    "jetbrains": {
+      "backend": "CLion"
+    },
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "cmake.configureOnOpen": true,
+  	    "cmake.buildDirectory": "${workspaceFolder}/build",
+  	    "cmake.buildType": "Release"  
+      },
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools"
+      ]
+    }
+  },
+  "mounts": [
+    "source=${localWorkspaceFolder},target=/cppgrad,type=bind"
+  ]
+}
