@@ -11,7 +11,7 @@ cmake_install.cmake
 *.cmake
 
 # Ignore IDE/editor settings
-.vscode/
+#.vscode/
 .idea/
 
 # Ignore Git metadata

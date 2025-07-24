@@ -63,7 +63,7 @@ test_detail.xml
 # =====================================
 
 # VSCode
-.vscode/
+#.vscode/
 *.code-workspace
 
 # CLion and other JetBrains IDEs

@@ -4,31 +4,49 @@ project(cppgrad)
 
 set(CMAKE_CXX_STANDARD 20)
 
-#-- if you want to build third_party/arrayfire from source
-add_subdirectory(third_party/arrayfire)
-# Add Catch2 submodule
+message(STATUS "Building cppgrad with build type: ${CMAKE_BUILD_TYPE}")
+
+# ==== Options ====
+option(USE_PREBUILT_ARRAYFIRE "Use prebuilt ArrayFire instead of building from source" OFF)
+set(AF_BACKEND "cpu" CACHE STRING "ArrayFire backend: cpu, cuda, or metal")
+
+# ==== Validate AF_BACKEND ====
+if(NOT AF_BACKEND STREQUAL "cpu" AND
+        NOT AF_BACKEND STREQUAL "cuda" AND
+        NOT AF_BACKEND STREQUAL "metal")
+    message(FATAL_ERROR "Invalid AF_BACKEND '${AF_BACKEND}'. Must be one of: cpu, cuda, metal")
+endif()
+
+# ==== ArrayFire Setup ====
+if(USE_PREBUILT_ARRAYFIRE)
+    message(STATUS "Using prebuilt ArrayFire")
+    find_package(ArrayFire REQUIRED)
+else()
+    message(STATUS "Using bundled ArrayFire from third_party/arrayfire")
+    add_subdirectory(third_party/arrayfire)
+endif()
+
+# ==== Catch2 Submodule ====
 add_subdirectory(third_party/Catch2)
 
-#-- if you want to use pre built binaries for ArrayFire
-#find_package(ArrayFire REQUIRED)
-
+# ==== Include Paths ====
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
+# ==== Source Files ====
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS src/*.cpp)
 
-#will change to a library build layer
-#add_executable(cppgrad ${SRC_FILES})
-
+# ==== Library Target ====
 add_library(cppgrad STATIC ${SRC_FILES})
 
-#-- For cpu build
-target_link_libraries(cppgrad PUBLIC ArrayFire::afcpu) #change to afcuda for cuda build
+# ==== Link ArrayFire Backend ====
+target_link_libraries(cppgrad PUBLIC ArrayFire::af${AF_BACKEND})
 
+# ==== Include Directories ====
 target_include_directories(cppgrad PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
+# ==== Testing Setup ====
 enable_testing()
 
-#-- Add examples and tests folders
+# ==== Add Examples and Tests ====
 add_subdirectory(examples)
 add_subdirectory(test)
-

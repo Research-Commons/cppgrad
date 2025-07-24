@@ -97,7 +97,7 @@ You can use the following configuration files for a smooth development experienc
 }
 ```
 
-### `.vscode/tasks.json (Cntrl + Shift + P -> Run tasks -> Select what you want`
+### `.vscode/tasks.json (Cntrl + Shift + P -> Run tasks -> Select what you want)`
 
 ```json
 {

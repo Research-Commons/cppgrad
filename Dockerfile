@@ -30,19 +30,46 @@ RUN apt-get update && \
 # Set working directory
 WORKDIR /cppgrad
 
-# Copy everything (you can also selectively copy for caching benefits)
+# Copy everything
 COPY . .
 
-# Optional: Set default build type
+
+#-----------------------------------------
+#Optional Commands (These get overriden if you are using a devcontainer, so just set them directly there)
+
+# Build only if ure not running it from the devcontainer. Saves time as you would have to rebuild it anyways if using a devcontainer
+ARG IS_DEVCONTAINER=OFF
+
+# Set default build type
 ARG BUILD_TYPE=Release
 
-# Create build directory and build cppgrad
-RUN mkdir build
-WORKDIR /cppgrad/build
-RUN cmake .. -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
+# ON or OFF
+ARG USE_PREBUILT_ARRAYFIRE=OFF
 
-RUN cmake --build . --target all -j$(nproc)
+# cpu, cuda, or metal
+ARG AF_BACKEND=cpu
+
+# Set env variables to be used later in post_create.sh for devcontainers
+ENV BUILD_TYPE=${BUILD_TYPE}
+ENV USE_PREBUILT_ARRAYFIRE=${USE_PREBUILT_ARRAYFIRE}
+ENV AF_BACKEND=${AF_BACKEND}
+
+#-----------------------------------------
+
+# Create build directory and run cmake **only if not in a devcontainer**
+RUN if [ "$IS_DEVCONTAINER" = "OFF" ]; then \
+      echo "Building cppgrad (Docker build)"; \
+      mkdir -p /cppgrad/build && \
+      cd /cppgrad/build && \
+      cmake .. \
+        -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+        -DUSE_PREBUILT_ARRAYFIRE=${USE_PREBUILT_ARRAYFIRE} \
+        -DAF_BACKEND=${AF_BACKEND} && \
+      cmake --build . --target all -j$(nproc); \
+    else \
+      echo "Skipping build (inside devcontainer)"; \
+    fi
 
 WORKDIR /cppgrad
 # Default command if someone runs the container
-CMD ["/bin/bash"]
+ENTRYPOINT ["/bin/bash"]

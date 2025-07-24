@@ -4,10 +4,14 @@
     "dockerfile": "../Dockerfile",
     "context": "..",
     "args": {
-      "BUILD_TYPE": "Release"   // Overrides the BUILD_TYPE variable from dockerfile
+      "IS_DEVCONTAINER": "ON",               // Skip Dockerfile build (dont change this)
+      "BUILD_TYPE": "Release",               // CMake build type
+      "USE_PREBUILT_ARRAYFIRE": "OFF",       // Use third_party/arrayfire
+      "AF_BACKEND": "cpu"                    // Backend: cpu | cuda | metal
     }
   },
   "workspaceFolder": "/cppgrad",
+  "shutdownAction": "stopContainer",
   "customizations": {
     "jetbrains": {
       "backend": "CLion"
@@ -15,9 +19,9 @@
     "vscode": {
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",
-        "cmake.configureOnOpen": true,
-  	    "cmake.buildDirectory": "${workspaceFolder}/build",
-  	    "cmake.buildType": "Release"  
+        "cmake.configureOnOpen": false, // We'll handle config manually below
+        "cmake.buildDirectory": "${workspaceFolder}/build",
+        "cmake.buildType": "Release"
       },
       "extensions": [
         "ms-vscode.cpptools",
@@ -27,5 +31,6 @@
   },
   "mounts": [
     "source=${localWorkspaceFolder},target=/cppgrad,type=bind"
-  ]
+  ],
+  "postCreateCommand": "bash .devcontainer/post_create.sh"
 }

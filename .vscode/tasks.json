@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build cppgrad",
+      "type": "shell",
+      "command": "cmake --build build --target all -j",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Tensor Example",
+      "type": "shell",
+      "command": "./build/examples/tensor_example",
+      "group": {
+        "kind": "none",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Run Tests",
+      "type": "shell",
+      "command": "./build/test/cppgrad_test",
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      }
+    }
+  ]
+}
