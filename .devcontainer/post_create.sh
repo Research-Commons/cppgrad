@@ -1,5 +1,13 @@
 #!/bin/bash
-set -e  # Exit immediately if any command fails
+set -e  # Exit immediately if any command
+
+BUILD_TYPE="${BUILD_TYPE:-Release}"
+USE_PREBUILT_ARRAYFIRE="${USE_PREBUILT_ARRAYFIRE:-OFF}"
+AF_BACKEND="${AF_BACKEND:-cpu}"
+
+git config --global --add safe.directory /cppgrad
+git config --global --add safe.directory /cppgrad/third_party/Catch2
+git config --global --add safe.directory /cppgrad/third_party/arrayfire
 
 echo "[devcontainer] Starting post-create setup..."
 

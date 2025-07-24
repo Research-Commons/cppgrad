@@ -11,6 +11,7 @@
     }
   },
   "workspaceFolder": "/cppgrad",
+  "shutdownAction": "stopContainer",
   "customizations": {
     "jetbrains": {
       "backend": "CLion"
@@ -31,5 +32,5 @@
   "mounts": [
     "source=${localWorkspaceFolder},target=/cppgrad,type=bind"
   ],
-  "postCreateCommand": "bash .devcontainer/post_create.sh ${BUILD_TYPE} ${USE_PREBUILT_ARRAYFIRE} ${AF_BACKEND}"
+  "postCreateCommand": "bash .devcontainer/post_create.sh"
 }

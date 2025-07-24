@@ -49,6 +49,11 @@ ARG USE_PREBUILT_ARRAYFIRE=OFF
 # cpu, cuda, or metal
 ARG AF_BACKEND=cpu
 
+# Set env variables to be used later in post_create.sh for devcontainers
+ENV BUILD_TYPE=${BUILD_TYPE}
+ENV USE_PREBUILT_ARRAYFIRE=${USE_PREBUILT_ARRAYFIRE}
+ENV AF_BACKEND=${AF_BACKEND}
+
 #-----------------------------------------
 
 # Create build directory and run cmake **only if not in a devcontainer**
