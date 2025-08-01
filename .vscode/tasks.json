@@ -25,6 +25,18 @@
         "kind": "test",
         "isDefault": false
       }
+    },
+    {
+      "label": "Rebuild and Run Tensor Example",
+      "dependsOn": [
+        "Build cppgrad",
+        "Run Tensor Example"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
     }
   ]
 }

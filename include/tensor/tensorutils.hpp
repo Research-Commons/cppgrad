@@ -8,6 +8,8 @@ namespace cppgrad {
         public:
             static Tensor clone(const Tensor& input);
             static Tensor clone_with_grad(const Tensor& input);
+            static Tensor matmul(const Tensor& a, const Tensor& b);
+            static Tensor transpose(const Tensor& t);
     };
 
 }

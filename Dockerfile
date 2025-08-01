@@ -18,12 +18,17 @@ RUN apt-get update && \
         liblapack-dev \
         liblapacke-dev \
         libboost-all-dev \
+        libunwind8 \
+        libfreeimage-dev \
+        graphviz \
         ca-certificates \
         libgl1 \
         libglfw3 \
         libglfw3-dev \
         libglew-dev \
         pkg-config \
+        python3 \
+        python3-pip \
         && rm -rf /var/lib/apt/lists/*
 
         
