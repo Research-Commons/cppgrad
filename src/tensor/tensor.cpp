@@ -1,6 +1,8 @@
 #include "tensor/tensor.hpp"
 
+#include <algorithm>
 #include <iostream>
+#include <numeric>
 #include <stdexcept>
 #include <utility>
 
@@ -28,8 +30,39 @@ namespace cppgrad {
             throw std::invalid_argument("Number of values does not match shape");
         }
 
+
+        // 2) Load raw linear data
         af::array arr(static_cast<unsigned>(values.size()), values.data());
-        arr = af::moddims(arr, dims);
+
+        // 3) Reverse the shape vector (e.g. {D0,D1,D2} -> {D2,D1,D0})
+        std::vector<size_t> rev_shape(shape.rbegin(), shape.rend());
+        af::dim4 rev_dims = to_dim4(rev_shape);
+
+        // 4) Reshape into reversed dims (column‑major fill aligns with row‑major input)
+        arr = af::moddims(arr, rev_dims);
+
+        // 5) Build a reorder‑axes list: {N‑1, N‑2, …, 0}
+        std::vector<unsigned> axes(shape.size());
+        std::iota(axes.begin(), axes.end(), 0);
+        std::reverse(axes.begin(), axes.end());
+
+        // 6) Reorder back to original axis order (choose the right overload)
+        switch (axes.size()) {
+            case 1:
+                // 1D: nothing to do (reversing a single axis is a no‑op)
+                break;
+            case 2:
+                arr = af::reorder(arr, axes[0], axes[1]);
+                break;
+            case 3:
+                arr = af::reorder(arr, axes[2], axes[1], axes[0]);
+                break;
+            case 4:
+                arr = af::reorder(arr, axes[3], axes[2], axes[1], axes[0]);
+                break;
+            default:
+                throw std::runtime_error("Tensor constructor only supports up to 4D");
+        }
 
         impl_ = std::make_shared<TensorImpl>(arr, requires_grad);
     }
@@ -60,6 +93,22 @@ namespace cppgrad {
         af::array arr = af::constant(value, dims);
         return {arr, requires_grad};
     }
+
+    Tensor Tensor::from_array_column_major(const std::vector<size_t> &shape, const std::vector<float> &values, bool requires_grad) {
+        size_t expected = 1;
+        for (auto s : shape) expected *= s;
+
+        if (values.size() != expected) {
+            throw std::invalid_argument("Value count doesn't match shape");
+        }
+
+        af::dim4 dims = to_dim4(shape);
+        af::array arr(static_cast<unsigned>(values.size()), values.data());
+        arr = af::moddims(arr, dims);
+
+        return {std::make_shared<TensorImpl>(arr, requires_grad)};
+    }
+
 
     std::vector<size_t> Tensor::shape() const {
         af::dim4 dims = impl_->data().dims();
@@ -143,6 +192,100 @@ namespace cppgrad {
         if (requires_grad() && impl_->has_autograd()) {
             impl_->grad() = af::constant(0.0f, impl_->data().dims(), impl_->data().type());
         }
+    }
+
+    Tensor Tensor::sum(int dim, bool keepdim) const {
+        af::array result;
+
+        if (dim == -1) {
+            // Sum all elements
+            result = af::sum(af::flat(this->data()));
+        } else {
+            // Sum along specific dimension
+            result = af::sum(this->data(), dim);
+
+            if (keepdim) {
+                af::dim4 id = this->data().dims();
+                std::vector<dim_t> dims = { id[0], id[1], id[2], id[3] };
+                dims[dim] = 1;
+                af::dim4 keep_dims(dims[0], dims[1], dims[2], dims[3]);
+                result = af::moddims(result, keep_dims);
+            }
+        }
+
+        Tensor out(result, this->requires_grad());
+
+        if (out.requires_grad()) {
+            auto fn = std::make_shared<SumFunction>(this->data().dims(), dim, keepdim);
+            fn->inputs = { this->impl_ };
+            out.impl_->grad_fn() = fn;
+        }
+
+        return out;
+    }
+
+    Tensor Tensor::mean(int dim, bool keepdim) const {
+        af::array result;
+        dim_t divisor;
+
+        if (dim == -1) {
+            // Mean of all elements
+            result = af::mean(af::flat(this->data()));
+            divisor = this->data().elements();
+        } else {
+            // Mean along specific dimension
+            result = af::sum(this->data(), dim);
+            divisor = this->data().dims(dim);
+
+            if (keepdim) {
+                af::dim4 id = this->data().dims();
+                std::vector<dim_t> dims = { id[0], id[1], id[2], id[3] };
+                dims[dim] = 1;
+                af::dim4 keep_dims(dims[0], dims[1], dims[2], dims[3]);
+                result = af::moddims(result, keep_dims);
+            }
+
+            result = result / static_cast<float>(divisor);
+        }
+
+        Tensor out(result, this->requires_grad());
+
+        if (out.requires_grad()) {
+            auto fn = std::make_shared<MeanFunction>(this->data().dims(), dim, keepdim);
+            fn->inputs = { this->impl_ };
+            out.impl_->grad_fn() = fn;
+        }
+
+        return out;
+    }
+
+    Tensor Tensor::max(int dim, bool keepdim) const {
+        af::array result;
+
+        if (dim == -1) {
+            // Max over all elements → scalar
+            result = af::max<af::array>(af::flat(this->data()));  // correct version
+            result = af::moddims(result, af::dim4(1, 1, 1, 1));   // to make it 4D scalar
+        } else {
+            // Max along dim
+            result = af::max(this->data(), dim);
+
+            if (keepdim) {
+                af::dim4 shape = this->data().dims();
+                shape[dim] = 1;
+                result = af::moddims(result, shape);
+            }
+        }
+
+        Tensor out(result, this->requires_grad());
+
+        if (out.requires_grad()) {
+            auto fn = std::make_shared<MaxFunction>(this->data(), dim, keepdim);
+            fn->inputs = { this->impl_ };
+            out.impl_->grad_fn() = fn;
+        }
+
+        return out;
     }
 
     // void Tensor::backward(const af::array &grad_output) {

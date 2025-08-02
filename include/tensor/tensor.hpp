@@ -17,6 +17,9 @@ namespace cppgrad {
         static Tensor ones(const std::vector<size_t>& shape, bool requires_grad = false);
         static Tensor randn(const std::vector<size_t>& shape, bool requires_grad = false);
         static Tensor full(const std::vector<size_t>& shape, float value, bool requires_grad = false);
+        static Tensor from_array_column_major(const std::vector<size_t>& shape,
+                                      const std::vector<float>& values,
+                                      bool requires_grad = false);
 
         // Shape and info
         std::vector<size_t> shape() const;
@@ -28,6 +31,13 @@ namespace cppgrad {
         void print_pretty() const;
         void print_grad() const;
 
+        //additional ops
+        /// Sum over one axis, optionally keeping that dimension.
+        /// - dim: which axis to reduce (0-based)
+        /// - keepdim: if true, output has same rank with size-1 on reduced dim
+        Tensor sum(int dim = -1, bool keepdim = false) const;
+        Tensor mean(int dim = -1, bool keepdim = false) const;
+        Tensor max(int dim = -1, bool keepdim = false) const;
         //Autograd
         void backward(const af::array& grad_output = af::array());
 
@@ -53,6 +63,19 @@ namespace cppgrad {
         friend Tensor operator+(float scalar, const Tensor& rhs);
         friend Tensor operator*(const Tensor& lhs, float scalar);
         friend Tensor operator*(float scalar, const Tensor& rhs);
+        friend Tensor operator-(const Tensor& a, const Tensor& b);
+        friend Tensor operator-(const Tensor& lhs, float scalar);
+        friend Tensor operator-(float scalar, const Tensor& rhs);
+        friend Tensor operator/(const Tensor& a, const Tensor& b);
+        friend Tensor operator/(const Tensor& lhs, float scalar);
+        friend Tensor operator/(float scalar, const Tensor& rhs);
+
+        friend Tensor operator-(const Tensor& a);
+        friend Tensor exp(const Tensor& a);
+        friend Tensor log(const Tensor& a);
+        friend Tensor pow(const Tensor& base, const Tensor& exponent);
+        friend Tensor pow(const Tensor& base, float scalar);
+        friend Tensor pow(float scalar, const Tensor& exponent);
 
         friend class TensorUtils;
     };
