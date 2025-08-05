@@ -7,7 +7,9 @@
       "IS_DEVCONTAINER": "ON",               // Skip Dockerfile build (dont change this)
       "BUILD_TYPE": "Release",               // CMake build type
       "USE_PREBUILT_ARRAYFIRE": "OFF",       // Use third_party/arrayfire
-      "AF_BACKEND": "cpu"                    // Backend: cpu | cuda | metal
+      "AF_BACKEND": "cpu",                   // Backend: cpu | cuda | metal
+      "BUILD_TESTING": "OFF",                // Build arrayfire tests
+      "AF_BUILD_EXAMPLES": "OFF"             // Build arrayfire examples
     }
   },
   "workspaceFolder": "/cppgrad",

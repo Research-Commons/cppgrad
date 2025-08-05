@@ -1,6 +1,7 @@
 #pragma once
-#include "tensor/tensor.hpp"
 
 namespace cppgrad {
+    class Tensor;
+
     Tensor operator-(const Tensor& a);
 }

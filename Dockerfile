@@ -27,8 +27,6 @@ RUN apt-get update && \
         libglfw3-dev \
         libglew-dev \
         pkg-config \
-        python3 \
-        python3-pip \
         && rm -rf /var/lib/apt/lists/*
 
         
@@ -54,11 +52,18 @@ ARG USE_PREBUILT_ARRAYFIRE=OFF
 # cpu, cuda, or metal
 ARG AF_BACKEND=cpu
 
+#ON or OFF
+ARG AF_BUILD_EXAMPLES=OFF
+
+#ON or OFF
+ARG BUILD_TESTING=OFF
+
 # Set env variables to be used later in post_create.sh for devcontainers
 ENV BUILD_TYPE=${BUILD_TYPE}
 ENV USE_PREBUILT_ARRAYFIRE=${USE_PREBUILT_ARRAYFIRE}
 ENV AF_BACKEND=${AF_BACKEND}
-
+ENV AF_BUILD_EXAMPLES=${AF_BUILD_EXAMPLES}
+ENV BUILD_TESTING=${BUILD_TESTING}
 #-----------------------------------------
 
 # Create build directory and run cmake **only if not in a devcontainer**
@@ -70,6 +75,8 @@ RUN if [ "$IS_DEVCONTAINER" = "OFF" ]; then \
         -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
         -DUSE_PREBUILT_ARRAYFIRE=${USE_PREBUILT_ARRAYFIRE} \
         -DAF_BACKEND=${AF_BACKEND} && \
+        -DBUILD_TESTING=${BUILD_TESTING} \
+        -DAF_BUILD_EXAMPLES=${AF_BUILD_EXAMPLES} && \
       cmake --build . --target all -j$(nproc); \
     else \
       echo "Skipping build (inside devcontainer)"; \

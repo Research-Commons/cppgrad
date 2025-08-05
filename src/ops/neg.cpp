@@ -1,5 +1,7 @@
 #include "ops/neg.hpp"
 #include "autograd/function.hpp"
+#include "tensor/tensor.hpp"
+
 
 namespace cppgrad {
 
