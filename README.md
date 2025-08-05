@@ -84,8 +84,7 @@ make -j$(nproc)
 ### 3. Run Examples
 
 ```bash
-./examples/tensor_example         # Basic tensor operations
-./examples/autograd_example       # Autograd showcase
+./examples/tensor_example         # Examples to showcase how tensor class and diff engine works
 ```
 
 ---
@@ -105,6 +104,22 @@ make -j$(nproc)
 
 ---
 
+## VSCode Tasks & Debugging
+
+When using Visual Studio Code, you can run these predefined tasks via **Terminal > Run Task** or by pressing `Ctrl+Shift+P` and selecting **Run Task**:
+
+| **Task Label**                     | **Description**                                                                 |
+|-----------------------------------|---------------------------------------------------------------------------------|
+| **Build cppgrad**                 | Compiles the entire project using `cmake --build build --target all -j`.       |
+| **Run Tensor Example**            | Executes the tensor example binary (`./build/examples/tensor_example`).        |
+| **Run Tests**                     | Runs the test suite (`./build/test/cppgrad_test`) and outputs failures.        |
+| **Rebuild and Run Tensor Example**| Sequentially builds the project and then runs the tensor example.              |
+
+These tasks are defined in `.vscode/tasks.json` at the project root.
+
+* **VSCode Debugging**: To debug, add a breakpoint to tensor_example.cpp and run using F5
+
+---
 ## Usage Example
 
 ```cpp
