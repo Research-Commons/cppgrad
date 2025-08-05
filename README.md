@@ -183,7 +183,7 @@ Tests cover(w.i.p):
 
 ## Contributing
 
-Contributions are welcome! Please read our **[CONTRIBUTING.md](./CONTRIBUTING.md)**:
+Contributions are welcome!
 
 * Fork the repo
 * Create a feature branch
