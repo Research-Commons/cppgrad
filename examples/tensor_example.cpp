@@ -1,538 +1,437 @@
-#include <fstream>
-
-#include "tensor/tensor.hpp"
-#include "tensor/tensorutils.hpp"
 #include <iostream>
+#include <numeric>  // for std::iota
 
-#include "autograd/graphviz_exporter.hpp"
+#include "cppgrad/tensor/tensor.hpp"
+#include "cppgrad/tensor/tensorutils.hpp"
+#include "cppgrad/visualizer/visualizer.hpp"
 
 using namespace cppgrad;
+
+// Global example counter for automated numbering
+static int g_example_counter = 1;
+
+// Helper to print a formatted example header
+void printExampleHeader(const std::string &description) {
+    std::cout << "\n=== Example " << g_example_counter++ << ": " << description << " ===\n";
+}
+
+// Helper to describe a tensor (values, shape, numel, dims)
+void describeTensor(const Tensor &t, const std::string &name) {
+    std::cout << name << ":\n";
+    t.print();
+    t.print_pretty();
+    std::cout << "Shape: ";
+    for (auto s : t.shape()) std::cout << s << " ";
+    std::cout << "| Numel: " << t.numel() << " | Dims: " << t.ndim() << "\n";
+}
+
+// Helper to print gradients for given tensors
+template<typename... Ts>
+void printGrads(const Ts &...ts) {
+    (ts.print_grad(), ...);
+}
 
 int main() {
     af::info();
 
-    // Test: Manual construction
-    std::vector<float> values = {1, 2, 3, 4, 5, 6};
-    Tensor t1({2, 3}, values);
-    std::cout << "Tensor t1 (manual):" << std::endl;
-    t1.print();
-    t1.print_pretty();
+    // 1. Manual construction
+    printExampleHeader("Manual construction");
+    std::vector<float> values = {1,2,3,4,5,6};
+    Tensor t1({2,3}, values);
+    describeTensor(t1, "t1");
+    // no gradients here
 
-    std::cout << "Shape: ";
-    for (auto s : t1.shape()) std::cout << s << " ";
+    // 2. Zeros initialization
+    printExampleHeader("Zeros initialization");
+    describeTensor(Tensor::zeros({2,2}), "t2");
+    // no gradients
 
-    std::cout << "\nNumel: " << t1.numel() << ", Dims: " << t1.ndim() << std::endl;
-    std::cout << std::endl;
+    // 3. Ones initialization
+    printExampleHeader("Ones initialization");
+    describeTensor(Tensor::ones({2,3}), "t3");
 
-    // Test: zeros
-    Tensor t2 = Tensor::zeros({2, 2});
-    std::cout << "Tensor t2 (zeros):" << std::endl;
-    t2.print();
+    // 4. Random normal initialization
+    printExampleHeader("Random normal initialization");
+    describeTensor(Tensor::randn({2,2}), "t4");
 
-    // Test: ones
-    Tensor t3 = Tensor::ones({2, 3});
-    std::cout << "Tensor t3 (ones):" << std::endl;
-    t3.print();
+    // 5. Full constant initialization
+    printExampleHeader("Full constant initialization");
+    describeTensor(Tensor::full({2,2}, 42.0f), "t5");
 
-    // Test: randn
-    Tensor t4 = Tensor::randn({2, 2});
-    std::cout << "Tensor t4 (randn):" << std::endl;
-    t4.print();
+    // 6. Elementwise addition and multiplication
+    printExampleHeader("Elementwise addition and multiplication");
+    Tensor add = Tensor::full({2,2}, 1.0f) + Tensor::full({2,2}, 2.0f);
+    Tensor mul = Tensor::full({2,2}, 3.0f) * Tensor::full({2,2}, 4.0f);
+    describeTensor(add, "add");
+    describeTensor(mul, "mul");
+    // no gradients
 
-    // Test: full
-    Tensor t5 = Tensor::full({2, 2}, 42.0f);
-    std::cout << "Tensor t5 (full with 42.0):" << std::endl;
-    t5.print();
-
-    Tensor t6 = t5 + t4;
-    t6.print();
-
-    Tensor t7 = t5 * t4;
-    t7.print();
-
-
-    std::cout << "Test 1: e = a*b + d\n";
+    // 7. e = a * b + d
+    printExampleHeader("e = a * b + d");
     {
-        Tensor a = Tensor::full({2, 2}, 3.0, true);
-        Tensor b = Tensor::full({2, 2}, 4.0, true);
-        Tensor d = Tensor::full({2, 2}, 2.0, true);
+        Tensor a = Tensor::full({2,2}, 3.0, true);
+        Tensor b = Tensor::full({2,2}, 4.0, true);
+        Tensor d = Tensor::full({2,2}, 2.0, true);
         Tensor c = a * b;
         Tensor e = c + d;
         e.backward();
-        a.print_grad(); // 4.0
-        b.print_grad(); // 3.0
-        d.print_grad(); // 1.0
-        c.print_grad(); // 1.0
-        e.print_grad(); // 1.0
+        printGrads(a, b, d, c, e);
+        // Expected:
+        // a.grad = [[4,4],[4,4]]
+        // b.grad = [[3,3],[3,3]]
+        // d.grad = [[1,1],[1,1]]
+        // c.grad = [[1,1],[1,1]]
+        // e.grad = 1
     }
 
-    std::cout << "\nTest 2: z = a * b * c\n";
+    // 8. z = a * b * c (scalars)
+    printExampleHeader("z = a * b * c (scalars)");
     {
         Tensor a = Tensor::full({}, 2.0, true);
         Tensor b = Tensor::full({}, 3.0, true);
         Tensor c = Tensor::full({}, 4.0, true);
         Tensor z = a * b * c;
         z.backward();
-        a.print_grad(); // 12.0
-        b.print_grad(); // 8.0
-        c.print_grad(); // 6.0
+        printGrads(a, b, c);
+        // Expected: a.grad=12, b.grad=8, c.grad=6
     }
 
-    std::cout << "\nTest 3: p = (a + b) * b\n";
+    // 9. p = (a + b) * b
+    printExampleHeader("p = (a + b) * b");
     {
         Tensor a = Tensor::full({}, 2.0, true);
         Tensor b = Tensor::full({}, 3.0, true);
         Tensor s = a + b;
         Tensor p = s * b;
         p.backward();
-        a.print_grad();  // 3.0
-        b.print_grad(); // 8.0
+        printGrads(a, b);
+        // Expected: a.grad = 3, b.grad = (a+b) + b*1 = 2+3 + 3 = 8
     }
 
-    std::cout << "\nTest 4: grads before backward\n";
+    // 10. Gradients before and after backward
+    printExampleHeader("Gradients before and after backward");
     {
         Tensor a = Tensor::full({}, 5.0, true);
         Tensor b = Tensor::full({}, 7.0, true);
         Tensor z = a + b;
-        a.print_grad(); // 0.0
-        b.print_grad(); // 0.0
+        std::cout << "Before backward:\n";
+        printGrads(a, b);
         z.backward();
-        a.print_grad();  // 1.0
-        b.print_grad(); // 1.0
+        std::cout << "After backward:\n";
+        printGrads(a, b);
+        // Expected before: a.grad=0, b.grad=0
+        // Expected after: a.grad=1, b.grad=1
     }
 
-    std::cout << "\nTest 5: reuse x in multiple ops\n";
+    // 11. Reuse x in multiple operations
+    printExampleHeader("Reuse x in multiple operations");
     {
         Tensor x = Tensor::full({}, 2.0, true);
         Tensor y1 = x * x;
         Tensor y2 = x + x;
         Tensor z = y1 + y2;
         z.backward();
-        x.print_grad(); // 6.0
+        printGrads(x);
+        // Expected: x.grad = 2*x + 2 = 2*2 + 2 = 6
     }
 
-    std::cout << "\nTest 6: constant tensor\n";
+    // 12. Constant tensor (no grad)
+    printExampleHeader("Constant tensor (no grad)");
     {
         Tensor a = Tensor::full({}, 2.0, true);
         Tensor b = Tensor::full({}, 3.0, false);
         Tensor c = a * b;
         c.backward();
-        a.print_grad();  // 3.0
-        b.print_grad();// b.grad() should not exist
+        printGrads(a);
+        // Expected: a.grad = 3
+        // b.grad should not exist
     }
 
-    std::cout << "\nTest 7: intermediate reuse\n";
+    // 13. Intermediate reuse
+    printExampleHeader("Intermediate reuse");
     {
         Tensor a = Tensor::full({}, 2.0, true);
         Tensor b = a * a;
         Tensor c = b * a;
         c.backward();
-        a.print_grad();  // 12.0
+        printGrads(a);
+        // Expected: a.grad = 2*a*a' + a*a' = 2*2 + 4 = 8? Actually b=a^2 so db/da=2a=4, dc/db=a so chain: dc/da = dc/db*db/da + dc/da (direct)
+        // But simpler: c = a^3, so dc/da = 3*a^2 = 12
     }
 
-    std::cout << "\nTest 8: direct definition\n";
+    // 14. Direct definition chain
+    printExampleHeader("Direct definition chain");
     {
         Tensor a = Tensor::full({}, 2.0, true);
         Tensor b = a * a;
         Tensor c = b * Tensor::full({}, 5.0, true);
         c.backward();
-        a.print_grad();  // 20.0
+        printGrads(a);
+        // Expected: c = 5*a^2 => dc/da = 10*a = 20
     }
 
-    std::cout << "\nTest 9: Throw debug only warning if backward called twice\n";
+    // 15. Backward called twice warning
+    printExampleHeader("Backward called twice warning");
     {
         Tensor a = Tensor::full({}, 2.0, true);
         Tensor b = Tensor::full({}, 2.0, true);
-
         Tensor c = a * b;
-
         c.backward();
-        c.backward(); // this will throw [debug] backward() called more than once on the same tensor in debug mode
-
-        //This is only a warning as we anyway set gradient to 1 during backward call
+        c.backward();  // debug-only warning
     }
 
-    std::cout << "\nTest 10: Throw debug only warning if backward called twice\n";
+    // 16. Separate backward on components
+    printExampleHeader("Separate backward on components");
     {
         Tensor a = Tensor::full({}, 2.0, true);
         Tensor b = Tensor::full({}, 3.0, true);
-        Tensor c = a * b;    // b = 6
+        Tensor c = a * b;
         c.backward();
-        a.print_grad(); // → prints 3
-
+        printGrads(a); // Expected a.grad = 3
         b.backward();
-        a.print_grad();
+        printGrads(a); // Expected a.grad remains 3
     }
 
-    std::cout << "\nTest 11: Better print function\n";
+    // 17. Scalar add and mul
+    printExampleHeader("Scalar add and mul");
     {
-        Tensor a = Tensor::full({}, 2.0, true);
-        a.print_pretty();
-    }
-
-    std::cout << "\nTest 12: Scalar Add\n";
-    {
-        Tensor a = Tensor::full({2, 1}, 2.0, true);
-
+        Tensor a = Tensor::full({2,1}, 2.0, true);
         Tensor b = a + 5.f;
         Tensor c = 5.f + b;
-
-        c.backward(); // 1
-
-        a.print_grad();
-
-        b.print();
-        c.print();
-    }
-
-    std::cout << "\nTest 13: Scalar Mul\n";
-    {
-        Tensor a = Tensor::full({2, 1}, 2.0, true);
-
-        Tensor b = a * 5.f;
-        Tensor c = 5.f * b;
-
-        c.backward(); // 25
-
-        a.print_grad();
-
-        b.print();
-        c.print();
-    }
-
-    std::cout << "Test 14: Clone Test:\n";
-    {
-        Tensor a = Tensor::full({2, 2}, 3.0f, true);
-
-        // Just copy data, no gradient tracking
-        Tensor b = TensorUtils::clone(a);
-
-        a.print_pretty();
-        b.print_pretty();
-
-        //b.backward(); // this will throw an error cuz no autograd
-    }
-
-    std::cout << "\n\nTest 15: Clone Test With Autograd:\n";
-    {
-        // Original tensor `a`
-        Tensor a = Tensor::full({2, 2}, 3.0f, true);  // requires_grad = true
-
-        // Clone it
-        Tensor b = TensorUtils::clone_with_grad(a);
-
-        // Operate on clone
-        Tensor c = b * 2.0f;
-
-        // Backward pass
         c.backward();
-
-        // Output values and gradients
-        std::cout << "a:\n"; a.print();
-        std::cout << "a.grad:\n"; a.print_grad();
-
-        std::cout << "b:\n"; b.print();
-        std::cout << "b.grad:\n"; b.print_grad();
-
-        std::cout << "c:\n"; c.print();
-        std::cout << "c.grad:\n"; c.print_grad();
+        printGrads(a);
+        // Expected a.grad = 1
+        describeTensor(b, "b");
+        describeTensor(c, "c");
     }
 
-    std::cout << "\nTest 16: MatMul Forward (using full)\n";
+    // 18. Clone without autograd
+    printExampleHeader("Clone without autograd");
     {
-        // Initialize 'a' with shape 2×3 and values {1,2,3,4,5,6}
-        std::vector<float> values_a = {1, 2, 3,
-                                       4, 5, 6};
-        Tensor a({2, 3}, values_a);  // shape: (2 × 3)
-
-        // Initialize 'b' with shape 3×2 and values {7,8,9,10,11,12}
-        std::vector<float> values_b = {7,  8,
-                                       9, 10,
-                                       11,12};
-        Tensor b({3, 2}, values_b);  // shape: (3 × 2)
-
-        // Perform matmul: c = a @ b → result shape (2 × 2)
-        // Expected values:
-        // [1*7 + 2*9 + 3*11,  1*8 + 2*10 + 3*12]  = [58,  64]
-        // [4*7 + 5*9 + 6*11,  4*8 + 5*10 + 6*12]  = [139,154]
-        Tensor c = TensorUtils::matmul(a, b);
-
-        // Print the result
-        c.print();  // should output:
-        // [[ 58,  64],
-        //  [139, 154]]
+        Tensor a = Tensor::full({2,2}, 3.0f, true);
+        Tensor b = TensorUtils::clone(a);
+        describeTensor(a, "a");
+        describeTensor(b, "b");
+        // no gradients
     }
 
-    std::cout << "\nTest 17: 4d tensor row major test\n";
+    // 19. Clone with autograd
+    printExampleHeader("Clone with autograd");
     {
-        // shape = 2×2×2, values 1…8 in row‑major:
-        //  slice 0: [[1,2],[3,4]]
-        //  slice 1: [[5,6],[7,8]]
-        std::vector<float> vals3d = {
-            1, 2,
-            3, 4,
+        Tensor a = Tensor::full({2,2}, 3.0f, true);
+        Tensor b = TensorUtils::clone_with_grad(a);
+        Tensor c = b * 2.0f;
+        c.backward();
+        printGrads(a, b);
+        // Expected a.grad = 2, b.grad = 2
+    }
 
-            5, 6,
-            7, 8,
+    // 20. Matrix multiplication
+    printExampleHeader("Matrix multiplication");
+    {
+        Tensor a({2,3}, {1,2,3,4,5,6});
+        Tensor b({3,2}, {7,8,9,10,11,12});
+        auto c = TensorUtils::matmul(a,b);
+        describeTensor(c, "c");
+        // no gradients
+    }
 
-            9, 10,
-            11, 12,
-
-            13, 14,
-            15, 16
-        };
-        Tensor t3({2,2,2, 2}, vals3d, /*requires_grad=*/false);
-
-        // after constructing t3...
+    // 21. 4D tensor row-major test
+    printExampleHeader("4D tensor row-major test");
+    {
+        std::vector<float> vals(4*3*2);
+        std::iota(vals.begin(), vals.end(), 1.0f);
+        Tensor t3({4,3,2}, vals, false);
         auto A = t3.impl()->data();
-        std::vector<float> host(vals3d.size());
-        A.host(host.data());    // copy back the raw buffer
-
-        // Now print the host vector in flat order:
+        std::vector<float> host(vals.size());
+        A.host(host.data());
         std::cout << "host = { ";
         for (size_t i = 0; i < host.size(); ++i) {
-            std::cout << host[i];
-            if (i+1 < host.size()) std::cout << ", ";
+            std::cout << host[i] << (i+1<host.size()? ", " : " ");
         }
-        std::cout << " }\n";
-
-        t3.print();
-        t3.print_pretty();
+        std::cout << "}\n";
+        describeTensor(t3, "t3");
+        // no gradients
     }
 
-    std::cout << "\nTest 18: tensor column major test\n";
+    // 22. Column-major tensor test
+    printExampleHeader("Column-major tensor test");
     {
-        Tensor t = Tensor::from_array_column_major({2, 3}, {1, 2, 3, 4, 5, 6});
-
-        t.print_pretty();
-
+        Tensor t = Tensor::from_array_column_major({2,3}, {1,2,3,4,5,6});
+        describeTensor(t, "t");
+        // no gradients
     }
 
-    std::cout << "\nTest 19: new ops test\n";
+    // 23. ((a + b) * (a - b)) / (a * b)
+    printExampleHeader("((a + b) * (a - b)) / (a * b)");
     {
-        Tensor a = Tensor::full({2, 2}, 3.0f, true);  // requires_grad = true
-        Tensor b = Tensor::full({2, 2}, 2.0f, true);  // requires_grad = true
-
-        // Expression: ((a + b) * (a - b)) / (a * b)
-        Tensor c = a + b;    // c = a + b
-        Tensor d = a - b;    // d = a - b
-        Tensor e = c * d;    // e = (a + b) * (a - b)
-        Tensor f = a * b;    // f = a * b
-        Tensor out = e / f;  // out = ((a + b)*(a - b)) / (a * b)
-
+        Tensor a = Tensor::full({2,2}, 3.0f, true);
+        Tensor b = Tensor::full({2,2}, 2.0f, true);
+        auto out = ((a + b) * (a - b)) / (a * b);
         out.backward();
-
-        std::cout << "\nGradient wrt a:\n";a.print_grad();
-        std::cout << "\nGradient wrt b:\n";b.print_grad();
-
-//         a.grad() = [[0.7222, 0.7222],
-//             [0.7222, 0.7222]]
-//
-//         b.grad() = [[-1.0833, -1.0833],
-//             [-1.0833, -1.0833]]
-
-        //Visualizer::save_dot(out, "graph");
-
+        printGrads(a, b);
+        // Expected a.grad ≈ 0.7222, b.grad ≈ -1.0833
     }
 
-    std::cout << "\nTest 20: new new ops test\n";
+    // 24. log + exp + pow composite op
+    printExampleHeader("log + exp + pow composite op");
     {
-        Tensor a = Tensor::full({2, 2}, 3.0f, true);  // requires_grad = true
-        Tensor b = Tensor::full({2, 2}, 2.0f, true);  // requires_grad = true
-
-        // Core expression: ((a + b) * (a - b)) / (a * b)
-        Tensor c = a + b;
-        Tensor d = a - b;
-        Tensor e = c * d;
-        Tensor f = a * b;
-        Tensor frac = e / f;
-
-        // New: log(frac) + exp(-a) + pow(b, a)
-        Tensor log_part = log(frac);
-        Tensor neg_a = -a;
-        Tensor exp_part = exp(neg_a);
-        Tensor pow_part = pow(b, a);
-
-        Tensor out = log_part + exp_part + pow_part;
-
-        // Backprop
+        Tensor a = Tensor::full({2,2}, 3.0f, true);
+        Tensor b = Tensor::full({2,2}, 2.0f, true);
+        auto frac     = ((a + b) * (a - b)) / (a * b);
+        auto logp     = log(frac);
+        auto expp     = exp(-a);
+        auto powp     = pow(b, a);
+        auto out      = logp + expp + powp;
         out.backward();
+        printGrads(a, b);
+        // Expected a.grad ≈ 6.362, b.grad ≈ 10.7
 
-        std::cout << "\nGradient wrt a:\n";
-        a.print_grad();
-        std::cout << "\nGradient wrt b:\n";
-        b.print_grad();
-
-        // a.grad	≈ 6.362
-        // b.grad	≈ 10.7
-
-        //Visualizer::save_dot(out, "graph");
-
+        Visualizer::save_dot(out, "graph");
     }
 
-    std::cout << "\nTest 21: sum over all elements\n";
+    // 25. Sum over all elements
+    printExampleHeader("Sum over all elements");
     {
-        Tensor a = Tensor::full({2, 2}, 1.0f, true);  // [[1, 1], [1, 1]]
-        Tensor s = a.sum();                          // scalar: 4.0
-
-        s.print();  // Should print scalar 4.0
+        Tensor a = Tensor::full({2,2}, 1.0f, true);
+        auto s = a.sum();
+        describeTensor(s, "s");
         s.backward();
-
-        std::cout << "\nGradient wrt a:\n";
-        a.print_grad();  // Should be [[1, 1], [1, 1]]
+        printGrads(a);
+        // Expected a.grad = [[1,1],[1,1]]
     }
 
-    std::cout << "\nTest 22: sum along dim=0, keepdim=false\n";
+    // 26. Sum along dim=0 (keepdim=false)
+    printExampleHeader("Sum along dim=0 (keepdim=false)");
     {
-        Tensor a ({2, 2}, {1 ,2 , 3, 4}, true);  // [[1, 2], [3, 4]]
-        Tensor s = a.sum(0);                           // sum over rows → [4, 6]
-
-        s.print();  // Should print shape (2,) with values [4, 6]
+        Tensor a({2,2}, {1,2,3,4}, true);
+        auto s = a.sum(0);
+        describeTensor(s, "s");
         s.backward();
-
-        std::cout << "\nGradient wrt a:\n";
-        a.print_grad();  // Should be [[1, 1], [1, 1]]
+        printGrads(a);
+        // Expected a.grad = [[1,1],[1,1]]
     }
 
-    std::cout << "\nTest 23: sum along dim=1, keepdim=true\n";
+    // 27. Sum along dim=1 (keepdim=true)
+    printExampleHeader("Sum along dim=1 (keepdim=true)");
     {
-        Tensor a ({2, 2}, {1 ,2 , 3, 4}, true);  // [[1, 2], [3, 4]]
-        Tensor s = a.sum(1, true);                     // sum across cols, keepdim → [[3], [7]]
-
-        s.print();  // Should print shape (2,1) with values [[3], [7]]
+        Tensor a({2,2}, {1,2,3,4}, true);
+        auto s = a.sum(1, true);
+        describeTensor(s, "s");
         s.backward();
-
-        std::cout << "\nGradient wrt a:\n";
-        a.print_grad();  // Should be [[1, 1], [1, 1]]
+        printGrads(a);
+        // Expected a.grad = [[1,1],[1,1]]
     }
 
-    std::cout << "\nTest 24: sum along dim=1 without keepdim\n";
+    // 28. Sum along dim=1 + scale
+    printExampleHeader("Sum along dim=1 (keepdim=false) + scale");
     {
-        Tensor a ({2, 3}, {0, 1 , 2, 3, 4, 5}, true);  // [[0, 1, 2], [3, 4, 5]]
-
-        Tensor s = a.sum(1);  // Sum along dim=1 → shape: [2]
-
-        Tensor out = s * Tensor::full({2}, 2.0f); // Multiply s by 2.0 → gradient will be 2.0
-
+        Tensor a({2,3}, {0,1,2,3,4,5}, true);
+        auto s = a.sum(1);
+        describeTensor(s, "s");
+        auto out = s * Tensor::full({2}, 2.0f);
         out.backward();
-
-        std::cout << "a:\n"; a.print();
-        std::cout << "a.grad:\n"; a.print_grad();
-
-        // Expected a.grad:
-        // a.grad =
-        // [[2, 2, 2],
-        //  [2, 2, 2]]
+        printGrads(a);
+        // Expected a.grad = [[2,2,2],[2,2,2]]
     }
 
-    std::cout << "\nTest 25: mean over all elements\n";
+    // 29. Mean over all elements
+    printExampleHeader("Mean over all elements");
     {
-        Tensor a = Tensor::full({2, 2}, 1.0f, true);  // [[1, 1], [1, 1]]
-        Tensor m = a.mean();                         // scalar: 1.0
-
-        m.print();  // Should print scalar 1.0
+        Tensor a = Tensor::full({2,2}, 1.0f, true);
+        auto m = a.mean();
+        describeTensor(m, "m");
         m.backward();
-
-        std::cout << "\nGradient wrt a:\n";
-        a.print_grad();  // Should be [[0.25, 0.25], [0.25, 0.25]]
+        printGrads(a);
+        // Expected a.grad = [[0.25,0.25],[0.25,0.25]]
     }
 
-    std::cout << "\nTest 26: mean along dim=0, keepdim=false\n";
+    // 30. Mean along dim=0 (keepdim=false)
+    printExampleHeader("Mean along dim=0 (keepdim=false)");
     {
-        Tensor a({2, 2}, {1, 2, 3, 4}, true);  // [[1, 2], [3, 4]]
-        Tensor m = a.mean(0);                 // Mean over rows → [2.0, 3.0]
-
-        m.print();  // Should print shape (2,) with values [2.0, 3.0]
+        Tensor a({2,2}, {1,2,3,4}, true);
+        auto m = a.mean(0);
+        describeTensor(m, "m");
         m.backward();
-
-        std::cout << "\nGradient wrt a:\n";
-        a.print_grad();  // Should be [[0.5, 0.5], [0.5, 0.5]]
+        printGrads(a);
+        // Expected a.grad = [[0.5,0.5],[0.5,0.5]]
     }
 
-    std::cout << "\nTest 27: mean along dim=1, keepdim=true\n";
+    // 31. Mean along dim=1 (keepdim=true)
+    printExampleHeader("Mean along dim=1 (keepdim=true)");
     {
-        Tensor a({2, 2}, {1, 2, 3, 4}, true);  // [[1, 2], [3, 4]]
-        Tensor m = a.mean(1, true);           // Mean across cols → [[1.5], [3.5]]
-
-        m.print();  // Should print shape (2,1) with values [[1.5], [3.5]]
+        Tensor a({2,2}, {1,2,3,4}, true);
+        auto m = a.mean(1, true);
+        describeTensor(m, "m");
         m.backward();
-
-        std::cout << "\nGradient wrt a:\n";
-        a.print_grad();  // Should be [[0.5, 0.5], [0.5, 0.5]]
+        printGrads(a);
+        // Expected a.grad = [[0.5,0.5],[0.5,0.5]]
     }
 
-    std::cout << "\nTest 28: mean along dim=1 without keepdim + scale\n";
+    // 32. Mean along dim=1 + scale
+    printExampleHeader("Mean along dim=1 (keepdim=false) + scale");
     {
-        Tensor a({2, 3}, {0, 1, 2, 3, 4, 5}, true);  // [[0, 1, 2], [3, 4, 5]]
-        Tensor m = a.mean(1);                        // Mean along dim=1 → shape: [2]
-
-        Tensor out = m * Tensor::full({2}, 3.0f);    // Multiply result by 3.0
-
+        Tensor a({2,3}, {0,1,2,3,4,5}, true);
+        auto m = a.mean(1);
+        describeTensor(m, "m");
+        auto out = m * Tensor::full({2}, 3.0f);
         out.backward();
-
-        std::cout << "a:\n"; a.print();
-        std::cout << "a.grad:\n"; a.print_grad();
-
-        // Expected a.grad:
-        // [[1, 1, 1],     // 3.0 * d(mean)/dx = 3.0 * (1/3)
-        //  [1, 1, 1]]     // Each row has gradient 1.0 broadcasted
+        printGrads(a);
+        // Expected a.grad = [[1,1,1],[1,1,1]]
     }
 
-    std::cout << "\nTest 29: max over all elements\n";
+    // 33. Max over all elements
+    printExampleHeader("Max over all elements");
     {
-        Tensor a({2, 2}, {1, 10, 1, 1}, true);  // [[1, 10], [1, 1]]
-        a.print();
-        Tensor m = a.max();  // scalar 10.0
-        m.print();
+        Tensor a({2,2}, {1,10,1,1}, true);
+        describeTensor(a, "a");
+        auto m = a.max();
+        describeTensor(m, "m");
         m.backward();
-
-        std::cout << "\nGradient wrt a:\n";
-        a.print_grad();  // Only the max location should have 1.0, others 0
+        printGrads(a);
+        // Expected a.grad = [[0,1],[0,0]]
     }
 
-    std::cout << "\nTest 30: max along dim=0, keepdim=false\n";
+    // 34. Max along dim=0 (keepdim=false)
+    printExampleHeader("Max along dim=0 (keepdim=false)");
     {
-        Tensor a({2, 2}, {1, 5, 3, 4}, true);  // [[1, 5], [3, 4]]
-        Tensor m = a.max(0);  // max over rows → [3, 5]
-        m.print();
-
+        Tensor a({2,2}, {1,5,3,4}, true);
+        auto m = a.max(0);
+        describeTensor(m, "m");
         m.backward();
-
-        std::cout << "\nGradient wrt a:\n";
-        a.print_grad();  // Gradient only on [1][0] and [0][1]
+        printGrads(a);
+        // Expected a.grad = [[0,1],[1,0]]
     }
 
-    std::cout << "\nTest 31: max along dim=1, keepdim=true\n";
+    // 35. Max along dim=1 (keepdim=true)
+    printExampleHeader("Max along dim=1 (keepdim=true)");
     {
-        Tensor a({2, 3}, {1, 9, 5, 2, 3, 6}, true);  // [[1, 9, 5], [2, 3, 6]]
-        Tensor m = a.max(1, true);  // keepdim → shape (2,1)
-
-        m.print();  // [[9], [6]]
+        Tensor a({2,3}, {1,9,5,2,3,6}, true);
+        auto m = a.max(1, true);
+        describeTensor(m, "m");
         m.backward();
-
-        std::cout << "\nGradient wrt a:\n";
-        a.print_grad();  // Only max locations get gradient 1.0
-        // Expected:
-        // [[0, 1, 0],
-        //  [0, 0, 1]]
+        printGrads(a);
+        // Expected a.grad = [[0,1,0],[0,0,1]]
     }
 
-    std::cout << "\nTest 32: max(dim=1) followed by multiply\n";
+    // 36. Max dim=1 then multiply & shape check
+    printExampleHeader("Max dim=1 then multiply & shape check");
     {
-        Tensor a({2, 3}, {2, 4, 6, 1, 8, 7}, true);  // [[2,4,6], [1,8,7]]
-        Tensor m = a.max(1);  // → [6, 8]
-
-        Tensor out = m * Tensor::full({2}, 2.0f);  // → [12, 16]
+        Tensor a({2,3}, {2,4,6,1,8,7}, true);
+        auto m = a.max(1);  // [6,8]
+        describeTensor(m, "m");
+        auto out = m * Tensor::full({2}, 2.0f);
         out.backward();
+        printGrads(a);
+        // Expected a.grad = [[0,0,2],[0,2,0]]
 
-        std::cout << "a:\n"; a.print();
-        std::cout << "a.grad:\n"; a.print_grad();
-
-        // Expected grad:
-        // [[0, 0, 2],
-        //  [0, 2, 0]]
+        Tensor t({2,3}, {1,2,3,4,5,6});
+        auto s_dim0 = t.sum(0);
+        if (s_dim0.shape() == std::vector<size_t>{2}) {
+            std::cout << "Shape check passed\n";
+        }
     }
 
-
+    std::cout << "\nAll examples completed.\n";
     return 0;
 }

@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
-
 project(cppgrad)
 
 set(CMAKE_CXX_STANDARD 20)
-
 message(STATUS "Building cppgrad with build type: ${CMAKE_BUILD_TYPE}")
 
 # ==== Options ====
@@ -29,22 +27,22 @@ endif()
 # ==== Catch2 Submodule ====
 add_subdirectory(third_party/Catch2)
 
-# ==== Include Paths ====
-include_directories(${CMAKE_SOURCE_DIR}/include)
-
 # ==== Source Files ====
-file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS src/*.cpp)
+file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cpp)
 
-# ==== Library Target ====
+# ==== Create Static Library ====
 add_library(cppgrad STATIC ${SRC_FILES})
+
+# ==== Include Directories ====
+target_include_directories(cppgrad
+        PUBLIC  ${CMAKE_SOURCE_DIR}/include            # Enables: #include "cppgrad/tensor/..."
+        PRIVATE ${CMAKE_SOURCE_DIR}/include/cppgrad    # Enables: #include "tensor/..."
+)
 
 # ==== Link ArrayFire Backend ====
 target_link_libraries(cppgrad PUBLIC ArrayFire::af${AF_BACKEND})
 
-# ==== Include Directories ====
-target_include_directories(cppgrad PUBLIC ${CMAKE_SOURCE_DIR}/include)
-
-# ==== Testing Setup ====
+# ==== Enable Testing ====
 enable_testing()
 
 # ==== Add Examples and Tests ====

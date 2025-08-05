@@ -1,7 +1,8 @@
 #include "ops/mul.hpp"
-#include <stdexcept>
-
 #include "autograd/function.hpp"
+#include "tensor/tensor.hpp"
+
+#include <stdexcept>
 
 namespace cppgrad {
 

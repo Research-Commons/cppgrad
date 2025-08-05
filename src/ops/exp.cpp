@@ -1,5 +1,6 @@
 #include "ops/exp.hpp"
 #include "autograd/function.hpp"
+#include "tensor/tensor.hpp"
 
 namespace cppgrad {
 

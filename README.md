@@ -1,133 +1,192 @@
-# cppgrad
-The official neural network library in C++
-The header files and the source C++ files are stored separately to reduce build time and avoid redundancy.
-The header files are the ones which act as your api layer. 
-The source files are the ones having the core logic.
-Because is C++ a compiled language, it needs to be built to run.
+# **cppgrad**
 
+**A High-Performance C++ Neural Network Library**
 
-## Build Instructions
-
->git clone --recurse-submodules https://github.com/Research-Commons/cppgrad.git
-
-### 1. ArrayFire Dependency
-
-`cppgrad` depends on [ArrayFire](https://arrayfire.com/), a high-performance tensor and matrix library. You can use either:
-
-- The **prebuilt ArrayFire binaries**, or
-- The **bundled source code** in `third_party/arrayfire`.
-
-> Make sure to change CMakeLists.txt based on your choice
+- **Header-only API layer** for ease of development
+- **Modular core implementation** (.cpp files) for optimized performance
+- Built on top of **ArrayFire** for accelerated tensor operations
 
 ---
 
-### Option 1: Use Prebuilt ArrayFire Binaries 
+## Features
 
-Follow the official guide:  
-➡️ https://github.com/arrayfire/arrayfire/wiki/Getting-ArrayFire
+* **Tensor Operations**: Multi-dimensional arrays with support for arithmetic, reductions, and advanced indexing.
+* **Autograd Engine**: Build computation graphs and perform automatic differentiation.
+* **Prebuilt Gradient Functions**: `Neg`, `Exp`, `Log`, `Pow`, `Sum`, `Mean`, `Max`, and more.
+* **Extensible Backend**: Swap ArrayFire with custom backends (e.g., CUDA, OpenCL).
+* **Examples & Tests**: Ready-to-run examples and a comprehensive test suite.
+* **Modern CMake**: Easy integration into your projects via `find_package` or submodule.
+
+![img.png](images/tensor_structure_overview.png)
 
 ---
 
-### Option 2: Use Bundled Source (in `third_party/arrayfire`)
+## Installation
 
-This option requires no external ArrayFire installation. Just build `cppgrad` normally, and the bundled `third_party/arrayfire` will be built automatically.
+You can integrate `cppgrad` in two main ways:
 
+1. **Clone & Build**
 
-### Prerequisites (Fedora – CPU-only Build)
+   ```bash
+   git clone --recurse-submodules https://github.com/Research-Commons/cppgrad.git
+   ```
+2. **Fetch via CMake**
 
-Install the required system packages using:
+   ```cmake
+   include(FetchContent)
+   FetchContent_Declare(
+     cppgrad
+     GIT_REPOSITORY https://github.com/Research-Commons/cppgrad.git
+     GIT_TAG        main
+   )
+   FetchContent_MakeAvailable(cppgrad)
+   ```
+
+---
+
+## Dependencies
+
+* **C++17** or newer
+* **CMake** ≥ 3.15
+* **ArrayFire** (prebuilt or bundled)
+
+    * If using prebuilt binaries, install via your package manager or from [ArrayFire releases](https://arrayfire.com/download).
+    * If using the bundled source (`third_party/arrayfire`), it will build automatically.
+
+Optional:
+
+* **Docker**: Containerized development and CI builds
+* **VSCode DevContainer**: Preconfigured environment (Highly Recommended)
+
+---
+
+## Quick Build & Run
+
+### 1. Prerequisites (Fedora example)
 
 ```bash
 sudo dnf install \
     git cmake gcc-c++ \
     fftw-devel blas-devel lapack-devel \
     libpng-devel hdf5-devel \
-    boost-devel glibc-devel glm-devel
+    boost-devel glm-devel
 ```
 
-For full instructions on building ArrayFire from source (including CUDA and Intel-mkl versions):
-➡️ https://github.com/arrayfire/arrayfire/wiki/Build-Instructions-for-Linux
-
----
-
-### Build cppgrad
+### 2. Build
 
 ```bash
-cd /path/to/cppgrad
+cd cppgrad
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
-make -j8 # or whatever you want
+make -j$(nproc)
 ```
 
-or just use your IDE to build it
+### 3. Run Examples
+
+```bash
+./examples/tensor_example         # Basic tensor operations
+./examples/autograd_example       # Autograd showcase
+```
 
 ---
 
-## VSCode Support
+## Docker & DevContainer
 
-You can use the following configuration files for a smooth development experience with Visual Studio Code. Tune it to your requirements
+* **Docker**: `Dockerfile` provided for CPU/GPU builds.
 
-### `.vscode/launch.json (for debugging cppgrad)`
+  ```bash
+  docker build -t cppgrad:latest .
+  docker run --rm -it cppgrad:latest bash
+  ```
 
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Debug Tensor Example",
-      "type": "cppdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/build/examples/tensor_example",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}",
-      "environment": [],
-      "externalConsole": false,
-      "MIMode": "gdb",
-      "miDebuggerPath": "/usr/bin/gdb",
-      "setupCommands": [
-        {
-          "description": "Enable pretty-printing",
-          "text": "-enable-pretty-printing",
-          "ignoreFailures": true
-        }
-      ]
-    }
-  ]
+* **VSCode DevContainer**:
+
+    * `.devcontainer/devcontainer.json` and `Dockerfile` ready-to-use.
+
+---
+
+## Usage Example
+
+```cpp
+#include <cppgrad/tensor/tensor.hpp>
+
+int main() {
+  using namespace cppgrad;
+
+  // Create two requires_grad tensors
+  Tensor a = Tensor::full({2,2}, 3.0f, /*requires_grad=*/true);
+  Tensor b = Tensor::full({2,2}, 2.0f, /*requires_grad=*/true);
+
+  // Perform operations
+  Tensor c = a + b;
+  Tensor d = c * b;
+
+  // Backward
+  d.backward();
+
+  // Inspect gradients
+  std::cout << "Grad of a:\n" << a.grad() << std::endl;
+  std::cout << "Grad of b:\n" << b.grad() << std::endl;
+
+  return 0;
 }
 ```
 
-### `.vscode/tasks.json (Cntrl + Shift + P -> Run tasks -> Select what you want)`
+---
 
-```json
-{
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Build cppgrad",
-      "type": "shell",
-      "command": "cmake --build build --target all -j",
-      "group": "build",
-      "problemMatcher": []
-    },
-    {
-      "label": "Run Tensor Example",
-      "type": "shell",
-      "command": "./build/examples/tensor_example",
-      "group": {
-        "kind": "none",
-        "isDefault": true
-      }
-    },
-    {
-      "label": "Run Tests",
-      "type": "shell",
-      "command": "./build/test/cppgrad_test",
-      "group": {
-        "kind": "test",
-        "isDefault": false
-      }
-    }
-  ]
-}
+## API Overview
+
+### Tensors (`cppgrad::Tensor`)
+
+* **Constructors**: `Tensor::zeros`, `Tensor::full`, `Tensor::rand`, etc.
+* **Properties**: `.shape()`, `.dtype()`, `.requires_grad()`
+* **Operations**: `+`, `-`, `*`, `/`, `.sum()`, `.mean()`, `.max()`, `.exp()`, etc.
+* **Backward**: `.backward()`, `.grad()`
+
+### Core Components
+
+* **TensorImpl**: Underlying storage and metadata.
+* **GradFn**: Base class for gradient functions.
+* **Function subclasses**: `SumFunction`, `MeanFunction`, etc.
+
+---
+
+## Testing
+
+```bash
+cd build
+ctest --output-on-failure
 ```
+
+Tests cover(w.i.p):
+
+* Tensor creation & manipulation
+* Autograd correctness
+* Edge cases & error handling
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read our **[CONTRIBUTING.md](./CONTRIBUTING.md)**:
+
+* Fork the repo
+* Create a feature branch
+* Write tests & documentation
+* Open a PR
+
+---
+
+## License
+
+This project is licensed under the **Apache 2.0 License**. See [LICENSE](./LICENSE) for details.
+
+---
+
+## Community & Support
+
+* **Overview**: https://deepwiki.com/Research-Commons/cppgrad
+
+* **Issues**: [https://github.com/Research-Commons/cppgrad/issues](https://github.com/Research-Commons/cppgrad/issues)
+* **Discussions**: [https://github.com/Research-Commons/cppgrad/discussions](https://github.com/Research-Commons/cppgrad/discussions)
+* **ArrayFire** Slack & Forums for backend questions
