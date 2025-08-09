@@ -16,6 +16,7 @@
 * **Extensible Backend**: Swap ArrayFire with custom backends (e.g., CUDA, OpenCL).
 * **Examples & Tests**: Ready-to-run examples and a comprehensive test suite.
 * **Modern CMake**: Easy integration into your projects via `find_package` or submodule.
+* **Benchmarking Support**: Easy benchmarking of operations via google benchmarks.
 
 ![img.png](images/tensor_structure_overview.png)
 
