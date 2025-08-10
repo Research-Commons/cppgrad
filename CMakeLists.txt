@@ -27,6 +27,12 @@ endif()
 # ==== Catch2 Submodule ====
 add_subdirectory(third_party/Catch2)
 
+# ==== Google Benchmark Submodule ====
+message(STATUS "Adding Google Benchmark from third_party/googlebenchmark")
+set(BENCHMARK_ENABLE_TESTING OFF) # disable GB's own tests
+set(BENCHMARK_ENABLE_INSTALL OFF)
+add_subdirectory(third_party/googlebenchmark)
+
 # ==== Source Files ====
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/*.cpp)
 
@@ -45,6 +51,7 @@ target_link_libraries(cppgrad PUBLIC ArrayFire::af${AF_BACKEND})
 # ==== Enable Testing ====
 enable_testing()
 
-# ==== Add Examples and Tests ====
+# ==== Add subdirectories====
 add_subdirectory(examples)
 add_subdirectory(test)
+add_subdirectory(benchmarks)
