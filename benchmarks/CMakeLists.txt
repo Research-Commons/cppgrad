@@ -7,6 +7,7 @@ target_link_libraries(cppgrad_bench
         cppgrad
         benchmark::benchmark
         benchmark::benchmark_main
+        CUDA::cudart
 )
 
 target_include_directories(cppgrad_bench

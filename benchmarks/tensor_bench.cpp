@@ -1,28 +1,42 @@
+#include <cuda_runtime_api.h>
 #include <benchmark/benchmark.h>
-#include "cppgrad/tensor/tensor.hpp"
 
-// Benchmark: Elementwise addition of two N×N tensors
-static void BM_TensorAdd(benchmark::State& state) {
-    std::vector<unsigned long>::size_type N = state.range(0);
-    // Allocate input tensors once
-    cppgrad::Tensor a = cppgrad::Tensor::randn({N, N}, /*requires_grad=*/false);
-    cppgrad::Tensor b = cppgrad::Tensor::randn({N, N}, /*requires_grad=*/false);
+#include "cppgrad/tensor/tensor.hpp"
+#include "cppgrad/dispatcher/kernelRegistry.h"
+#include "cppgrad/backend/cpu_backend.h"
+#include "cppgrad/backend/cuda_backend.hpp"
+
+
+using namespace cppgrad;
+
+static void BM_Add_CPU(benchmark::State& state) {
+    // Setup once before the loop
+    KernelRegistry::instance().registerKernel(OpType::Add, DeviceType::CPU, CPU::addKernel);
+
+    Tensor A({10000, 10000}, 5.f, DeviceType::CPU);
+    Tensor B({10000, 10000}, 5.f, DeviceType::CPU);
 
     for (auto _ : state) {
-        // This code is measured
-        auto c = a + b;
-        af::eval(c.data());
-        benchmark::DoNotOptimize(c);
+        Tensor C = A + B;
+        benchmark::DoNotOptimize(C);
     }
-    // Optional: report complexity based on N
-    state.SetComplexityN(N);
 }
 
-// Register the benchmark for multiple sizes
-BENCHMARK(BM_TensorAdd)
-    ->Arg(500)
-    ->Arg(1000)
-    ->Arg(2000)
-    ->Complexity();
+static void BM_Add_CUDA(benchmark::State& state) {
+    // Setup once before the loop
+    KernelRegistry::instance().registerKernel(OpType::Add, DeviceType::CUDA, CUDA::addKernel);
+
+    Tensor A({10000, 10000}, 5.f, DeviceType::CUDA);
+    Tensor B({10000, 10000}, 5.f, DeviceType::CUDA);
+
+    for (auto _ : state) {
+        Tensor C = A + B;
+        benchmark::DoNotOptimize(C);
+        cudaDeviceSynchronize(); // Ensure timing includes GPU execution
+    }
+}
+
+BENCHMARK(BM_Add_CPU);
+BENCHMARK(BM_Add_CUDA);
 
 BENCHMARK_MAIN();
