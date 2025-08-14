@@ -449,9 +449,11 @@ using namespace cppgrad;
 int main() {
 
     KernelRegistry::instance().registerKernel(OpType::Add, DeviceType::CPU, CPU::addKernel);
-    KernelRegistry::instance().registerKernel(OpType::Add, DeviceType::CUDA, CUDA::addKernel);
-
     KernelRegistry::instance().registerKernel(OpType::Mul, DeviceType::CPU, CPU::mulKernel);
+    KernelRegistry::instance().registerKernel(OpType::Sub, DeviceType::CPU, CPU::subKernel);
+    KernelRegistry::instance().registerKernel(OpType::Div, DeviceType::CPU, CPU::divKernel);
+
+    KernelRegistry::instance().registerKernel(OpType::Add, DeviceType::CUDA, CUDA::addKernel);
     KernelRegistry::instance().registerKernel(OpType::Mul, DeviceType::CUDA, CUDA::mulKernel);
 
     Tensor A = Tensor::randn({2, 3}, false, DeviceType::CUDA);

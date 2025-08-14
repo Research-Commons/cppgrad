@@ -1,34 +1,31 @@
-// #include "ops/sub.hpp"
-// #include "autograd/function.hpp"
-// #include "tensor/tensor.hpp"
-//
-// #include <stdexcept>
-//
-// namespace cppgrad {
-//
-//     Tensor operator-(const Tensor& a, const Tensor& b) {
-//         // Check shape compatibility (broadcasting not yet implemented)
-//         if (a.shape() != b.shape())
-//             throw std::runtime_error("shape mismatch");
-//
-//         Tensor out(a.data() - b.data(),
-//                    a.requires_grad() || b.requires_grad());
-//
-//         if (out.requires_grad() && out.impl_->grad_fn() == nullptr) {
-//             auto fn = std::make_shared<SubFunction>();
-//             fn->inputs = { a.impl_, b.impl_ };
-//             out.impl_->grad_fn() = fn;
-//         }
-//
-//         return out;
-//     }
-//
-//     Tensor operator-(const Tensor& lhs, float scalar) {
-//         return lhs - Tensor::full(lhs.shape(), scalar, false);
-//     }
-//
-//     Tensor operator-(float scalar, const Tensor& rhs) {
-//         return Tensor::full(rhs.shape(), scalar, false) - rhs;
-//     }
-//
-// }
+#include "ops/sub.hpp"
+#include "autograd/function.hpp"
+#include "tensor/tensor.hpp"
+
+#include <stdexcept>
+
+#include "dispatcher/kernelRegistry.h"
+#include "ops/helperOps.hpp"
+
+namespace cppgrad {
+
+    Tensor operator-(const Tensor& a, const Tensor& b) {
+        if (a.device_type() != a.device_type()) {
+            throw std::runtime_error("Device mismatch in sub");
+        }
+        std::vector<size_t> out_shape = computeBroadcastShape(a.shape(), a.shape());
+        Tensor out(out_shape, 0.0f, false, a.device_type());
+        KernelRegistry::instance()
+            .getKernel(OpType::Sub, a.device_type())(a, b, out);
+        return out;
+    }
+
+    Tensor operator-(const Tensor& lhs, float scalar) {
+        return lhs - Tensor::full(lhs.shape(), scalar, false, lhs.device_type());
+    }
+
+    Tensor operator-(float scalar, const Tensor& rhs) {
+        return Tensor::full(rhs.shape(), scalar, false, rhs.device_type()) - rhs;
+    }
+
+}
