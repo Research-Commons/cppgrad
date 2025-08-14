@@ -6,6 +6,8 @@
 #include <cmath>
 #include <iostream>
 
+#include "autograd/function.hpp"
+
 namespace cppgrad {
 
 // ---------- Constructors ----------
@@ -152,10 +154,11 @@ void Tensor::backward(const std::vector<float>& grad_output) {
     impl_->set_has_called_backward(true);
 
     // Hook for a real autograd graph traversal:
-    if (impl_->has_autograd()) {
+    if (impl_->has_autograd() && impl_->grad_fn()) {
         // TODO: Call grad_fn->apply(...) / traverse graph
         // For now, just a stub to show where autograd would run.
         // e.g., impl_->grad_fn()->backward(impl_->grad());
+        impl_->grad_fn()->apply(impl_->grad());
     }
 }
 
