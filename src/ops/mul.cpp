@@ -10,13 +10,13 @@
 namespace cppgrad {
 
     Tensor operator*(const Tensor& a, const Tensor& b) {
-        if (a.device() != a.device()) {
+        if (a.device_type() != a.device_type()) {
             throw std::runtime_error("Device mismatch in mul");
         }
         std::vector<size_t> out_shape = computeBroadcastShape(a.shape(), a.shape());
-        Tensor out(out_shape, 0.0f, a.device());
+        Tensor out(out_shape, 0.0f, false, a.device_type());
         KernelRegistry::instance()
-            .getKernel(OpType::Mul, a.device())(a, b, out);
+            .getKernel(OpType::Mul, a.device_type())(a, b, out);
         return out;
     }
 

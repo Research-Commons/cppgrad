@@ -10,15 +10,15 @@
 namespace cppgrad {
 
     Tensor operator+(const Tensor& a, const Tensor& b) {
-        if (a.device() != b.device()) {
+        if (a.device_type() != b.device_type()) {
             throw std::runtime_error("Device mismatch in add");
         }
         // Compute broadcasted shape and create output tensor
         std::vector<size_t> out_shape = computeBroadcastShape(a.shape(), b.shape());
-        Tensor out(out_shape, 0.0f, a.device());
+        Tensor out(out_shape, 0.0f, false, a.device_type());
         // Lookup and call the registered kernel
         KernelRegistry::instance()
-            .getKernel(OpType::Add, a.device())(a, b, out);
+            .getKernel(OpType::Add, a.device_type())(a, b, out);
         return out;
     }
 

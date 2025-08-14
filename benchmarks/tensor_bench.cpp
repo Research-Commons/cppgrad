@@ -13,8 +13,8 @@ static void BM_Add_CPU(benchmark::State& state) {
     // Setup once before the loop
     KernelRegistry::instance().registerKernel(OpType::Add, DeviceType::CPU, CPU::addKernel);
 
-    Tensor A({10000, 10000}, 5.f, DeviceType::CPU);
-    Tensor B({10000, 10000}, 5.f, DeviceType::CPU);
+    Tensor A({10000, 10000}, 5.f, false, DeviceType::CPU);
+    Tensor B({10000, 10000}, 5.f, false, DeviceType::CPU);
 
     for (auto _ : state) {
         Tensor C = A + B;
@@ -26,8 +26,8 @@ static void BM_Add_CUDA(benchmark::State& state) {
     // Setup once before the loop
     KernelRegistry::instance().registerKernel(OpType::Add, DeviceType::CUDA, CUDA::addKernel);
 
-    Tensor A({10000, 10000}, 5.f, DeviceType::CUDA);
-    Tensor B({10000, 10000}, 5.f, DeviceType::CUDA);
+    Tensor A({10000, 10000}, 5.f, false, DeviceType::CUDA);
+    Tensor B({10000, 10000}, 5.f, false, DeviceType::CUDA);
 
     for (auto _ : state) {
         Tensor C = A + B;
