@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "dispatcher/kernelRegistry.h"
+#include "ops/helperOps.hpp"
 
 
 namespace cppgrad {
@@ -39,10 +40,10 @@ namespace cppgrad {
     //     return out;
     // }
 
-    // Tensor operator+(const Tensor& lhs, float scalar) {
-    //     return lhs + Tensor::full(lhs.shape(), scalar, false);
-    // }
-    // Tensor operator+(float scalar, const Tensor& rhs) {
-    //     return rhs + Tensor::full(rhs.shape(), scalar, false);
-    // }
+    Tensor operator+(const Tensor& lhs, float scalar) {
+        return lhs + Tensor::full(lhs.shape(), scalar, false, lhs.device_type());
+    }
+    Tensor operator+(float scalar, const Tensor& rhs) {
+        return rhs + Tensor::full(rhs.shape(), scalar, false, rhs.device_type());
+    }
 }

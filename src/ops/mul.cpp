@@ -5,7 +5,7 @@
 #include <stdexcept>
 
 #include "dispatcher/kernelRegistry.h"
-#include "ops/add.hpp"
+#include "ops/helperOps.hpp"
 
 namespace cppgrad {
 

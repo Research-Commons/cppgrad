@@ -452,19 +452,19 @@ int main() {
     KernelRegistry::instance().registerKernel(OpType::Add, DeviceType::CUDA, CUDA::addKernel);
 
     KernelRegistry::instance().registerKernel(OpType::Mul, DeviceType::CPU, CPU::mulKernel);
+    KernelRegistry::instance().registerKernel(OpType::Mul, DeviceType::CUDA, CUDA::mulKernel);
 
-    Tensor A({2,3}, {1,2,3,  4,5,6}, false, DeviceType::CUDA);
+    Tensor A = Tensor::randn({2, 3}, false, DeviceType::CUDA);
     Tensor B({2,3}, {6,5,4,  3,2,1}, false, DeviceType::CUDA);
 
     Tensor C = A + B;
     std::cout << "A + B = ";
     C.print();
     C.print_pretty();
-    // Expected: 7 7 7 7 7 7
 
 
-    Tensor A1({2,3}, {1,2,3,  4,5,6}, false, DeviceType::CPU);
-    Tensor B1({2,3}, {6,5,4,  3,2,1}, false, DeviceType::CPU);
+    Tensor A1({2,3}, {1,2,3,  4,5,6}, false, DeviceType::CUDA);
+    Tensor B1({2,3}, {6,5,4,  3,2,1}, false, DeviceType::CUDA);
 
     Tensor C1 = A1 * B1;
     C1.print();
