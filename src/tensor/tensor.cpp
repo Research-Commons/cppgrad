@@ -169,6 +169,10 @@ const std::vector<float>& Tensor::grad() const {
 // Data access
 const std::vector<float>& Tensor::data() const { return impl_->data(); }
 std::vector<float>& Tensor::data() { return impl_->data(); }
+const std::vector<float>& Tensor::stride() const { return impl_->stride(); }
+std::vector<float>& Tensor::stride(){ return impl_->stride(); }
+
+
 std::shared_ptr<TensorImpl> Tensor::impl() const { return impl_; }
 
 } // namespace cppgrad

@@ -16,7 +16,14 @@ namespace cppgrad {
         }
         // Compute broadcasted shape and create output tensor
         std::vector<size_t> out_shape = computeBroadcastShape(a.shape(), b.shape());
-        Tensor out(out_shape, 0.0f, false, a.device_type());
+        Tensor out(out_shape, 0.0f, a.requires_grad() || b.requires_grad(), a.device_type());
+
+        if (out.requires_grad()) {
+            auto f = std::make_shared<AddFunction>();
+            f->inputs = { a.impl(), b.impl() };
+            out.impl()->grad_fn() = f;
+        }
+
         // Lookup and call the registered kernel
         KernelRegistry::instance()
             .getKernel(OpType::Add, a.device_type())(a, b, out);

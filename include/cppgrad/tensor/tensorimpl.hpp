@@ -42,6 +42,9 @@ namespace cppgrad {
         std::vector<float>& grad();
         const std::vector<float>& grad() const;
 
+        const std::vector<float>& stride() const;
+        std::vector<float>& stride();
+
         std::shared_ptr<Function>& grad_fn();
         const std::shared_ptr<Function>& grad_fn() const;
 
@@ -58,11 +61,14 @@ namespace cppgrad {
     private:
         std::vector<float> data_;
         std::vector<float> grad_; // empty until needed
+        std::vector<float> stride_; // empty until needed
         std::shared_ptr<Function> grad_fn_;
         bool requires_grad_ = false;
         bool has_called_backward_ = false;
         std::vector<size_t> shape_;
         DeviceType device_ = DeviceType::CPU;
+
+        std::vector<size_t> compute_strides(const std::vector<size_t>& shape);
     };
 
 } // namespace cppgrad

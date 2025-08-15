@@ -457,20 +457,35 @@ int main() {
     KernelRegistry::instance().registerKernel(OpType::Add, DeviceType::CUDA, CUDA::addKernel);
     KernelRegistry::instance().registerKernel(OpType::Mul, DeviceType::CUDA, CUDA::mulKernel);
 
+    KernelRegistry::instance().registerBackwardKernel(OpType::Add, DeviceType::CPU, CPU::addBackwardKernel);
+    KernelRegistry::instance().registerBackwardKernel(OpType::Mul, DeviceType::CPU, CPU::mulBackwardKernel);
+    KernelRegistry::instance().registerBackwardKernel(OpType::Sub, DeviceType::CPU, CPU::subBackwardKernel);
+    KernelRegistry::instance().registerBackwardKernel(OpType::Div, DeviceType::CPU, CPU::divBackwardKernel);
+
     Tensor A({2,3}, std::vector<float>{1,2,3, 4,5,6}, true);
     Tensor B({2,3}, std::vector<float>{6,5,4, 3,2,1}, true);
 
-    // Forward: elementwise multiply (this returns a Tensor but does NOT set grad_fn automatically)
-    Tensor Z = A * B; // Z.data() == {6,10,12,12,10,6}
+    Tensor Z = A + B;
+    Tensor X = Z * B;
+    Tensor Y = X - A;
+    Tensor W = Y / A;
 
-    // Compute local gradient for Z (default: ones)
-    Z.backward(); // sets Z.impl()->grad() -> vector of ones
+
+    W.backward();
 
 
     A.print();
     B.print();
+    Z.print();
+    X.print();
+    Y.print();
+    W.print();
     A.print_grad();
     B.print_grad();
+    Z.print_grad();
+    X.print_grad();
+    Y.print_grad();
+    W.print_grad();
 
     return 0;
 }

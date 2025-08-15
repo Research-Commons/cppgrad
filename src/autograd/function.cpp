@@ -112,58 +112,72 @@ void AddFunction::apply(const std::vector<float>& grad_output) {
 
     auto a_impl = inputs[0];
     auto b_impl = inputs[1];
-    auto out_sh = compute_broadcast_shape(a_impl->shape(), b_impl->shape());
 
-    // attempt to use backward kernel (registry)
+    // keep device consistency for now
+    if (a_impl->device() != b_impl->device())
+        throw std::runtime_error("AddFunction::apply: mixed-device inputs not supported");
     DeviceType dev = a_impl->device();
-    if (b_impl->device() != dev) throw std::runtime_error("mixed-device inputs not supported");
+
+    auto out_sh = compute_broadcast_shape(a_impl->shape(), b_impl->shape());
 
     Tensor grad_out_tensor(out_sh, grad_output, false, dev);
     Tensor grad_a_tensor(a_impl->shape(), 0.0f, false, dev);
     Tensor grad_b_tensor(b_impl->shape(), 0.0f, false, dev);
 
     auto bk = KernelRegistry::instance().getBackwardKernelOrNull(OpType::Add, dev);
-    if (bk) {
-        // call kernel
-        bk(Tensor(a_impl->shape(), a_impl->data(), false, dev),
-           Tensor(b_impl->shape(), b_impl->data(), false, dev),
-           grad_out_tensor, grad_a_tensor, grad_b_tensor);
-    } else {
-        // fallback to util: reduce by squeezing padded buffers
-        int n = static_cast<int>(out_sh.size());
-        auto a_pad = pad_shape_right(a_impl->shape(), n);
-        auto b_pad = pad_shape_right(b_impl->shape(), n);
-        auto stride_out = compute_strides(out_sh);
-        auto stride_a = compute_strides(a_pad);
-        auto stride_b = compute_strides(b_pad);
+    if (!bk) throw std::runtime_error("No backward kernel registered for Add (device or CPU)");
 
-        size_t out_total = numel(out_sh);
-        size_t a_p_total = numel(a_pad);
-        size_t b_p_total = numel(b_pad);
+    // kernel is responsible for writing grad_a_tensor and grad_b_tensor
+    bk(Tensor(a_impl->shape(), a_impl->data(), false, dev),
+       Tensor(b_impl->shape(), b_impl->data(), false, dev),
+       grad_out_tensor,
+       grad_a_tensor,
+       grad_b_tensor);
 
-        std::vector<float> a_padded(a_p_total, 0.0f);
-        std::vector<float> b_padded(b_p_total, 0.0f);
-
-        for (size_t pos = 0; pos < out_total; ++pos) {
-            size_t idx_a = 0, idx_b = 0;
-            for (int d = 0; d < n; ++d) {
-                size_t coord = (pos / stride_out[(size_t)d]) % out_sh[(size_t)d];
-                if (a_pad[(size_t)d] != 1) idx_a += coord * stride_a[(size_t)d];
-                if (b_pad[(size_t)d] != 1) idx_b += coord * stride_b[(size_t)d];
-            }
-            float v = grad_output[pos];
-            a_padded[idx_a] += v;
-            b_padded[idx_b] += v;
-        }
-
-        auto a_squeezed = squeeze_padded_to_unpadded(a_padded, a_pad, a_impl->shape());
-        auto b_squeezed = squeeze_padded_to_unpadded(b_padded, b_pad, b_impl->shape());
-
-        grad_a_tensor = Tensor(a_impl->shape(), a_squeezed, false, dev);
-        grad_b_tensor = Tensor(b_impl->shape(), b_squeezed, false, dev);
+    // Accumulate into inputs and recurse
+    if (a_impl->requires_grad()) {
+        auto &g0 = a_impl->grad();
+        const auto &g_a_data = grad_a_tensor.data();
+        if (g0.empty()) g0 = std::vector<float>(g_a_data.size(), 0.0f);
+        for (size_t i = 0; i < g_a_data.size(); ++i) g0[i] += g_a_data[i];
+        if (a_impl->grad_fn()) a_impl->grad_fn()->apply(g_a_data);
     }
 
-    // accumulate into inputs and recurse (same as before)
+    if (b_impl->requires_grad()) {
+        auto &g1 = b_impl->grad();
+        const auto &g_b_data = grad_b_tensor.data();
+        if (g1.empty()) g1 = std::vector<float>(g_b_data.size(), 0.0f);
+        for (size_t i = 0; i < g_b_data.size(); ++i) g1[i] += g_b_data[i];
+        if (b_impl->grad_fn()) b_impl->grad_fn()->apply(g_b_data);
+    }
+}
+
+void MulFunction::apply(const std::vector<float>& grad_output) {
+    this->mark_visited();
+    if (inputs.size() < 2) throw std::runtime_error("MulFunction requires two inputs");
+
+    auto a_impl = inputs[0];
+    auto b_impl = inputs[1];
+
+    if (a_impl->device() != b_impl->device())
+        throw std::runtime_error("MulFunction::apply: mixed-device inputs not supported");
+    DeviceType dev = a_impl->device();
+
+    auto out_sh = compute_broadcast_shape(a_impl->shape(), b_impl->shape());
+
+    Tensor grad_out_tensor(out_sh, grad_output, false, dev);
+    Tensor grad_a_tensor(a_impl->shape(), 0.0f, false, dev);
+    Tensor grad_b_tensor(b_impl->shape(), 0.0f, false, dev);
+
+    auto bk = KernelRegistry::instance().getBackwardKernelOrNull(OpType::Mul, dev);
+    if (!bk) throw std::runtime_error("No backward kernel registered for Mul (device or CPU)");
+
+    bk(Tensor(a_impl->shape(), a_impl->data(), false, dev),
+       Tensor(b_impl->shape(), b_impl->data(), false, dev),
+       grad_out_tensor,
+       grad_a_tensor,
+       grad_b_tensor);
+
     if (a_impl->requires_grad()) {
         auto &g0 = a_impl->grad();
         const auto &g_a_data = grad_a_tensor.data();
@@ -183,102 +197,30 @@ void AddFunction::apply(const std::vector<float>& grad_output) {
 
 void SubFunction::apply(const std::vector<float>& grad_output) {
     this->mark_visited();
-
     if (inputs.size() < 2) throw std::runtime_error("SubFunction requires two inputs");
-
-    auto a_sh = inputs[0]->shape();
-    auto b_sh = inputs[1]->shape();
-    auto out_sh = compute_broadcast_shape(a_sh, b_sh);
-
-    if (inputs[0]->requires_grad()) {
-        auto grad0 = reduce_grad_to_input(grad_output, out_sh, a_sh);
-        auto &g0 = inputs[0]->grad();
-        if (g0.empty()) g0 = std::vector<float>(grad0.size(), 0.0f);
-        for (size_t i = 0; i < grad0.size(); ++i) g0[i] += grad0[i];
-        if (inputs[0]->grad_fn()) inputs[0]->grad_fn()->apply(grad0);
-    }
-
-    if (inputs[1]->requires_grad()) {
-        // grad w.r.t b is -grad_output (reduced)
-        std::vector<float> neg_grad_out(grad_output.size());
-        for (size_t i = 0; i < grad_output.size(); ++i) neg_grad_out[i] = -grad_output[i];
-
-        auto grad1 = reduce_grad_to_input(neg_grad_out, out_sh, b_sh);
-        auto &g1 = inputs[1]->grad();
-        if (g1.empty()) g1 = std::vector<float>(grad1.size(), 0.0f);
-        for (size_t i = 0; i < grad1.size(); ++i) g1[i] += grad1[i];
-        if (inputs[1]->grad_fn()) inputs[1]->grad_fn()->apply(grad1);
-    }
-}
-
-void MulFunction::apply(const std::vector<float>& grad_output) {
-    this->mark_visited();
-    if (inputs.size() < 2) throw std::runtime_error("MulFunction requires two inputs");
 
     auto a_impl = inputs[0];
     auto b_impl = inputs[1];
 
-    // enforce same-device inputs for now
     if (a_impl->device() != b_impl->device())
-        throw std::runtime_error("MulFunction::apply: mixed-device inputs not supported");
-
+        throw std::runtime_error("SubFunction::apply: mixed-device inputs not supported");
     DeviceType dev = a_impl->device();
+
     auto out_sh = compute_broadcast_shape(a_impl->shape(), b_impl->shape());
 
-    // Wrap grad_out and allocate grad tensors (on same device)
     Tensor grad_out_tensor(out_sh, grad_output, false, dev);
     Tensor grad_a_tensor(a_impl->shape(), 0.0f, false, dev);
     Tensor grad_b_tensor(b_impl->shape(), 0.0f, false, dev);
 
-    // Try registry backward kernel first
-    auto bk = KernelRegistry::instance().getBackwardKernelOrNull(OpType::Mul, dev);
-    if (bk) {
-        // pass inputs and grad_out; kernel writes into grad_a_tensor / grad_b_tensor
-        bk(Tensor(a_impl->shape(), a_impl->data(), false, dev),
-           Tensor(b_impl->shape(), b_impl->data(), false, dev),
-           grad_out_tensor,
-           grad_a_tensor,
-           grad_b_tensor);
-    } else {
-        // Fallback: CPU-side compute grad_a = reduce(grad_out * b), grad_b = reduce(grad_out * a)
-        int n = static_cast<int>(out_sh.size());
-        auto a_pad = pad_shape_right(a_impl->shape(), n);
-        auto b_pad = pad_shape_right(b_impl->shape(), n);
-        auto stride_out = compute_strides(out_sh);
-        auto stride_a = compute_strides(a_pad);
-        auto stride_b = compute_strides(b_pad);
+    auto bk = KernelRegistry::instance().getBackwardKernelOrNull(OpType::Sub, dev);
+    if (!bk) throw std::runtime_error("No backward kernel registered for Sub (device or CPU)");
 
-        size_t total = numel(out_sh);
-        size_t a_p_total = numel(a_pad);
-        size_t b_p_total = numel(b_pad);
+    bk(Tensor(a_impl->shape(), a_impl->data(), false, dev),
+       Tensor(b_impl->shape(), b_impl->data(), false, dev),
+       grad_out_tensor,
+       grad_a_tensor,
+       grad_b_tensor);
 
-        std::vector<float> a_padded(a_p_total, 0.0f);
-        std::vector<float> b_padded(b_p_total, 0.0f);
-
-        const auto &Adata = a_impl->data();
-        const auto &Bdata = b_impl->data();
-
-        for (size_t pos = 0; pos < total; ++pos) {
-            size_t idx_a = 0, idx_b = 0;
-            for (int d = 0; d < n; ++d) {
-                size_t coord = (pos / stride_out[(size_t)d]) % out_sh[(size_t)d];
-                if (a_pad[(size_t)d] != 1) idx_a += coord * stride_a[(size_t)d];
-                if (b_pad[(size_t)d] != 1) idx_b += coord * stride_b[(size_t)d];
-            }
-            float gout_v = grad_output[pos];
-            a_padded[idx_a] += gout_v * Bdata[idx_b];
-            b_padded[idx_b] += gout_v * Adata[idx_a];
-        }
-
-        // squeeze padded -> input shapes
-        auto a_squeezed = squeeze_padded_to_unpadded(a_padded, a_pad, a_impl->shape());
-        auto b_squeezed = squeeze_padded_to_unpadded(b_padded, b_pad, b_impl->shape());
-
-        grad_a_tensor = Tensor(a_impl->shape(), a_squeezed, false, dev);
-        grad_b_tensor = Tensor(b_impl->shape(), b_squeezed, false, dev);
-    }
-
-    // Accumulate into input grads and recurse
     if (a_impl->requires_grad()) {
         auto &g0 = a_impl->grad();
         const auto &g_a_data = grad_a_tensor.data();
@@ -294,126 +236,51 @@ void MulFunction::apply(const std::vector<float>& grad_output) {
         for (size_t i = 0; i < g_b_data.size(); ++i) g1[i] += g_b_data[i];
         if (b_impl->grad_fn()) b_impl->grad_fn()->apply(g_b_data);
     }
-
 }
 
 void DivFunction::apply(const std::vector<float>& grad_output) {
     this->mark_visited();
-
     if (inputs.size() < 2) throw std::runtime_error("DivFunction requires two inputs");
 
-    auto a_sh = inputs[0]->shape();
-    auto b_sh = inputs[1]->shape();
-    auto out_sh = compute_broadcast_shape(a_sh, b_sh);
+    auto a_impl = inputs[0];
+    auto b_impl = inputs[1];
 
-    int n = (int)out_sh.size();
-    auto a_pad = pad_shape_right(a_sh, n);
-    auto b_pad = pad_shape_right(b_sh, n);
-    auto stride_a = compute_strides(a_pad);
-    auto stride_b = compute_strides(b_pad);
-    auto stride_out = compute_strides(out_sh);
+    if (a_impl->device() != b_impl->device())
+        throw std::runtime_error("DivFunction::apply: mixed-device inputs not supported");
+    DeviceType dev = a_impl->device();
 
-    size_t total = 1;
-    for (auto s : out_sh) total *= s;
+    auto out_sh = compute_broadcast_shape(a_impl->shape(), b_impl->shape());
 
-    // grad wrt a: grad_output / b
-    if (inputs[0]->requires_grad()) {
-        size_t a_p_total = 1;
-        for (auto s : a_pad) a_p_total *= s;
-        std::vector<float> grad_a_padded(a_p_total, 0.0f);
+    Tensor grad_out_tensor(out_sh, grad_output, false, dev);
+    Tensor grad_a_tensor(a_impl->shape(), 0.0f, false, dev);
+    Tensor grad_b_tensor(b_impl->shape(), 0.0f, false, dev);
 
-        for (size_t pos = 0; pos < total; ++pos) {
-            size_t idx_a = 0, idx_b = 0;
-            for (int d = 0; d < n; ++d) {
-                size_t coord = (pos / stride_out[d]) % out_sh[d];
-                if (a_pad[d] != 1) idx_a += coord * stride_a[d];
-                if (b_pad[d] != 1) idx_b += coord * stride_b[d];
-            }
-            float bval = inputs[1]->data()[idx_b];
-            // safe divide
-            float contribution = (bval == 0.0f) ? std::numeric_limits<float>::infinity() : (grad_output[pos] / bval);
-            grad_a_padded[idx_a] += contribution;
-        }
+    auto bk = KernelRegistry::instance().getBackwardKernelOrNull(OpType::Div, dev);
+    if (!bk) throw std::runtime_error("No backward kernel registered for Div (device or CPU)");
 
-        // squeeze to a_sh
-        std::vector<float> grad_a_reduce;
-        if ((int)a_sh.size() < n) {
-            int offset = n - (int)a_sh.size();
-            size_t a_total = inputs[0]->numel();
-            grad_a_reduce.assign(a_total, 0.0f);
-            auto stride_squeezed = compute_strides(a_sh);
-            for (size_t pos = 0; pos < a_p_total; ++pos) {
-                size_t tmp = pos;
-                size_t squeezed_idx = 0;
-                for (int d = 0; d < n; ++d) {
-                    size_t coord = tmp / stride_a[d];
-                    tmp = tmp % stride_a[d];
-                    if (d >= offset) squeezed_idx += coord * stride_squeezed[d - offset];
-                }
-                grad_a_reduce[squeezed_idx] += grad_a_padded[pos];
-            }
-        } else {
-            grad_a_reduce = std::move(grad_a_padded);
-        }
+    bk(Tensor(a_impl->shape(), a_impl->data(), false, dev),
+       Tensor(b_impl->shape(), b_impl->data(), false, dev),
+       grad_out_tensor,
+       grad_a_tensor,
+       grad_b_tensor);
 
-        auto &g0 = inputs[0]->grad();
-        if (g0.empty()) g0 = std::vector<float>(grad_a_reduce.size(), 0.0f);
-        for (size_t i = 0; i < grad_a_reduce.size(); ++i) g0[i] += grad_a_reduce[i];
-
-        if (inputs[0]->grad_fn()) inputs[0]->grad_fn()->apply(grad_a_reduce);
+    if (a_impl->requires_grad()) {
+        auto &g0 = a_impl->grad();
+        const auto &g_a_data = grad_a_tensor.data();
+        if (g0.empty()) g0 = std::vector<float>(g_a_data.size(), 0.0f);
+        for (size_t i = 0; i < g_a_data.size(); ++i) g0[i] += g_a_data[i];
+        if (a_impl->grad_fn()) a_impl->grad_fn()->apply(g_a_data);
     }
 
-    // grad wrt b: -grad_output * a / (b*b)
-    if (inputs[1]->requires_grad()) {
-        size_t b_p_total = 1;
-        for (auto s : b_pad) b_p_total *= s;
-        std::vector<float> grad_b_padded(b_p_total, 0.0f);
-
-        for (size_t pos = 0; pos < total; ++pos) {
-            size_t idx_a = 0, idx_b = 0;
-            for (int d = 0; d < n; ++d) {
-                size_t coord = (pos / stride_out[d]) % out_sh[d];
-                if (a_pad[d] != 1) idx_a += coord * stride_a[d];
-                if (b_pad[d] != 1) idx_b += coord * stride_b[d];
-            }
-            float aval = inputs[0]->data()[idx_a];
-            float bval = inputs[1]->data()[idx_b];
-            float denom = bval * bval;
-            float contribution;
-            if (denom == 0.0f) contribution = -std::numeric_limits<float>::infinity();
-            else contribution = -grad_output[pos] * aval / denom;
-            grad_b_padded[idx_b] += contribution;
-        }
-
-        std::vector<float> grad_b_reduce;
-        if ((int)b_sh.size() < n) {
-            int offset = n - (int)b_sh.size();
-            size_t b_total = inputs[1]->numel();
-            grad_b_reduce.assign(b_total, 0.0f);
-            auto stride_squeezed = compute_strides(b_sh);
-            for (size_t pos = 0; pos < b_p_total; ++pos) {
-                size_t tmp = pos;
-                size_t squeezed_idx = 0;
-                for (int d = 0; d < n; ++d) {
-                    size_t coord = tmp / stride_b[d];
-                    tmp = tmp % stride_b[d];
-                    if (d >= offset) {
-                        squeezed_idx += coord * stride_squeezed[d - offset];
-                    }
-                }
-                grad_b_reduce[squeezed_idx] += grad_b_padded[pos];
-            }
-        } else {
-            grad_b_reduce = std::move(grad_b_padded);
-        }
-
-        auto &g1 = inputs[1]->grad();
-        if (g1.empty()) g1 = std::vector<float>(grad_b_reduce.size(), 0.0f);
-        for (size_t i = 0; i < grad_b_reduce.size(); ++i) g1[i] += grad_b_reduce[i];
-
-        if (inputs[1]->grad_fn()) inputs[1]->grad_fn()->apply(grad_b_reduce);
+    if (b_impl->requires_grad()) {
+        auto &g1 = b_impl->grad();
+        const auto &g_b_data = grad_b_tensor.data();
+        if (g1.empty()) g1 = std::vector<float>(g_b_data.size(), 0.0f);
+        for (size_t i = 0; i < g_b_data.size(); ++i) g1[i] += g_b_data[i];
+        if (b_impl->grad_fn()) b_impl->grad_fn()->apply(g_b_data);
     }
 }
+
 
 } // namespace cppgrad
 

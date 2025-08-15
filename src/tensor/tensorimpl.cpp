@@ -19,6 +19,7 @@ namespace cppgrad {
         if (data_.size() != total) {
             throw std::runtime_error("TensorImpl: data size does not match shape");
         }
+        compute_strides(shape);
     }
 
     TensorImpl::TensorImpl(const std::vector<size_t>& shape,
@@ -34,6 +35,7 @@ namespace cppgrad {
         size_t total = 1;
         for (auto s : shape_) total *= s;
         data_.assign(total, fill_value);
+        compute_strides(shape);
     }
 
     const std::vector<float>& TensorImpl::data() const { return data_; }
@@ -50,6 +52,9 @@ namespace cppgrad {
         return grad_;
     }
 
+    std::vector<float>& TensorImpl::stride(){ return stride_; }
+    const std::vector<float>& TensorImpl::stride() const { return stride_; }
+
     std::shared_ptr<Function>& TensorImpl::grad_fn() { return grad_fn_; }
     const std::shared_ptr<Function>& TensorImpl::grad_fn() const { return grad_fn_; }
 
@@ -65,5 +70,16 @@ namespace cppgrad {
 
     DeviceType TensorImpl::device() const { return device_; }
     void TensorImpl::set_device(DeviceType dev) { device_ = dev; }
+
+    std::vector<size_t> TensorImpl::compute_strides(const std::vector<size_t>& shape){
+        int n = static_cast<int>(shape.size());
+        std::vector<size_t> stride((size_t)n, 0);
+        if (n == 0) return stride;
+        stride[(size_t)n - 1] = 1;
+        for (int i = n - 2; i >= 0; --i) {
+            stride[(size_t)i] = stride[(size_t)i + 1] * shape[(size_t)i + 1];
+        }
+        return stride;
+    }
 
 } // namespace cppgrad
