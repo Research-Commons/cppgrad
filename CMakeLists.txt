@@ -10,6 +10,9 @@ find_package(CUDAToolkit REQUIRED)
 # ==== Options ====
 option(USE_PREBUILT_ARRAYFIRE "Use prebuilt ArrayFire instead of building from source" OFF)
 set(AF_BACKEND "cpu" CACHE STRING "ArrayFire backend: cpu, cuda, or metal")
+# Build AVX objects (compile-time flags). Turn off if compiler can't support or you want smaller binary.
+option(BUILD_AVX2  "Build AVX2 optimized kernels (object library)"  ON)
+option(BUILD_AVX512 "Build AVX-512 optimized kernels (object library)" ON)
 
 # ==== Validate AF_BACKEND ====
 if(NOT AF_BACKEND STREQUAL "cpu" AND
@@ -37,13 +40,56 @@ set(BENCHMARK_ENABLE_INSTALL OFF)
 add_subdirectory(third_party/googlebenchmark)
 
 # ==== Source Files ====
-file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
+file(GLOB_RECURSE ALL_SRC CONFIGURE_DEPENDS
         ${CMAKE_SOURCE_DIR}/src/*.cpp
         ${CMAKE_SOURCE_DIR}/src/*.cu
 )
 
+# remove ISA path files from ALL_SRC so they are compiled separately with special flags
+# NOTE: adjust the regex if your ISA path is different
+list(FILTER ALL_SRC EXCLUDE REGEX ".*/src/backend/isa/.*")
+
+# ==== AVX sources (explicit) ====
+file(GLOB AVX2_SRC CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/backend/isa/*avx2.cpp)
+file(GLOB AVX512_SRC CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/backend/isa/*_avx512.cpp)
+
+# ==== Create object libraries for ISA specializations ====
+if(BUILD_AVX2 AND AVX2_SRC)
+    add_library(cppgrad_isa_avx2 OBJECT ${AVX2_SRC})
+    if(MSVC)
+        target_compile_options(cppgrad_isa_avx2 PRIVATE /arch:AVX2)
+    else()
+        target_compile_options(cppgrad_isa_avx2 PRIVATE -mavx2 -mfma -O3)
+        # if you prefer -march=native, replace/add it here
+    endif()
+    target_include_directories(cppgrad_isa_avx2 PRIVATE ${CMAKE_SOURCE_DIR}/include)
+endif()
+
+if(BUILD_AVX512 AND AVX512_SRC)
+    add_library(cppgrad_isa_avx512 OBJECT ${AVX512_SRC})
+    if(MSVC)
+        # MSVC's AVX-512 support varies by version/toolset. Use with caution.
+        target_compile_options(cppgrad_isa_avx512 PRIVATE /arch:AVX512)
+    else()
+        target_compile_options(cppgrad_isa_avx512 PRIVATE -mavx512f -mavx512dq -mavx512bw -mavx512vl -mfma -O3)
+    endif()
+    target_include_directories(cppgrad_isa_avx512 PRIVATE ${CMAKE_SOURCE_DIR}/include)
+endif()
+
+# ==== Create final static library, including object libs if present ====
+# Note: add the generic source files plus any object lib objects
+set(CPPGRAD_OBJ_SOURCES ${ALL_SRC})
+
+# Construct the add_library call with OBJECTS expanded if they exist
+if(BUILD_AVX2 AND AVX2_SRC)
+    list(APPEND CPPGRAD_OBJ_SOURCES $<TARGET_OBJECTS:cppgrad_isa_avx2>)
+endif()
+if(BUILD_AVX512 AND AVX512_SRC)
+    list(APPEND CPPGRAD_OBJ_SOURCES $<TARGET_OBJECTS:cppgrad_isa_avx512>)
+endif()
+
 # ==== Create Static Library ====
-add_library(cppgrad STATIC ${SRC_FILES})
+add_library(cppgrad STATIC ${CPPGRAD_OBJ_SOURCES})
 
 set_target_properties(cppgrad PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON

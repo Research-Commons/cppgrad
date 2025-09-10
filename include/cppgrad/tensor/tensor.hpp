@@ -79,6 +79,9 @@ public:
     const std::vector<float>& stride() const;
     std::vector<float>& stride();
 
+    std::vector<size_t> stride_sizet() const;
+    std::vector<size_t> stride_sizet();
+
     std::shared_ptr<TensorImpl> impl() const;
 
     // -------- Reduction Ops --------

@@ -124,7 +124,7 @@ void AddFunction::apply(const std::vector<float>& grad_output) {
     Tensor grad_a_tensor(a_impl->shape(), 0.0f, false, dev);
     Tensor grad_b_tensor(b_impl->shape(), 0.0f, false, dev);
 
-    auto bk = KernelRegistry::instance().getBackwardKernelOrNull(OpType::Add, dev);
+    auto bk = KernelRegistry::instance().getBackwardKernel(OpType::Add, dev);
     if (!bk) throw std::runtime_error("No backward kernel registered for Add (device or CPU)");
 
     // kernel is responsible for writing grad_a_tensor and grad_b_tensor
@@ -169,7 +169,7 @@ void MulFunction::apply(const std::vector<float>& grad_output) {
     Tensor grad_a_tensor(a_impl->shape(), 0.0f, false, dev);
     Tensor grad_b_tensor(b_impl->shape(), 0.0f, false, dev);
 
-    auto bk = KernelRegistry::instance().getBackwardKernelOrNull(OpType::Mul, dev);
+    auto bk = KernelRegistry::instance().getBackwardKernel(OpType::Mul, dev);
     if (!bk) throw std::runtime_error("No backward kernel registered for Mul (device or CPU)");
 
     bk(Tensor(a_impl->shape(), a_impl->data(), false, dev),
@@ -212,7 +212,7 @@ void SubFunction::apply(const std::vector<float>& grad_output) {
     Tensor grad_a_tensor(a_impl->shape(), 0.0f, false, dev);
     Tensor grad_b_tensor(b_impl->shape(), 0.0f, false, dev);
 
-    auto bk = KernelRegistry::instance().getBackwardKernelOrNull(OpType::Sub, dev);
+    auto bk = KernelRegistry::instance().getBackwardKernel(OpType::Sub, dev);
     if (!bk) throw std::runtime_error("No backward kernel registered for Sub (device or CPU)");
 
     bk(Tensor(a_impl->shape(), a_impl->data(), false, dev),
@@ -255,7 +255,7 @@ void DivFunction::apply(const std::vector<float>& grad_output) {
     Tensor grad_a_tensor(a_impl->shape(), 0.0f, false, dev);
     Tensor grad_b_tensor(b_impl->shape(), 0.0f, false, dev);
 
-    auto bk = KernelRegistry::instance().getBackwardKernelOrNull(OpType::Div, dev);
+    auto bk = KernelRegistry::instance().getBackwardKernel(OpType::Div, dev);
     if (!bk) throw std::runtime_error("No backward kernel registered for Div (device or CPU)");
 
     bk(Tensor(a_impl->shape(), a_impl->data(), false, dev),

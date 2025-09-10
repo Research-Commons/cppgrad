@@ -6,71 +6,68 @@
 
 #include "cppgrad/tensor/tensor.hpp"
 #include "cppgrad/enums/dispatcherEnum.h"
+#include "cppgrad/backend/isa/isaDetect.hpp"
 
 namespace cppgrad {
 
 class KernelRegistry {
 public:
-    // forward kernel signature (same as before)
     using KernelFunc = std::function<void(const Tensor&, const Tensor&, Tensor&)>;
+    using BackwardKernelFunc = std::function<void(
+        const Tensor&, const Tensor&, const Tensor&, Tensor&, Tensor&)>;
 
-    // backward kernel signature (same as before)
-    using BackwardKernelFunc = std::function<void(const Tensor& a,
-                                                  const Tensor& b,
-                                                  const Tensor& grad_out,
-                                                  Tensor& grad_a,
-                                                  Tensor& grad_b)>;
+    static KernelRegistry& instance() { static KernelRegistry inst; return inst; }
 
-    static KernelRegistry& instance() {
-        static KernelRegistry inst;
-        return inst;
+    void registerKernel(OpType op, DeviceType dev, CpuIsa isa, KernelFunc fn) {
+        forward_[{op, dev, isa}] = std::move(fn);
     }
-
-    // Register a forward kernel for an operation and device
     void registerKernel(OpType op, DeviceType dev, KernelFunc fn) {
-        forward_registry_[std::make_pair(op, dev)] = std::move(fn);
+        registerKernel(op, dev, CpuIsa::GENERIC, std::move(fn));
     }
 
-    // Retrieve a forward kernel; first try (op,dev), then fall back to (op, CPU).
-    // Throws only if no kernel at all is registered for this op.
-    KernelFunc getKernel(OpType op, DeviceType dev) {
-        auto key = std::make_pair(op, dev);
-        auto it = forward_registry_.find(key);
-        if (it != forward_registry_.end()) return it->second;
-
-        // fallback to CPU
-        auto cpu_key = std::make_pair(op, DeviceType::CPU);
-        auto it_cpu = forward_registry_.find(cpu_key);
-        if (it_cpu != forward_registry_.end()) return it_cpu->second;
-
-        throw std::runtime_error("No forward kernel registered for this op on device and no CPU fallback");
+    void registerBackwardKernel(OpType op, DeviceType dev, CpuIsa isa, BackwardKernelFunc fn) {
+        backward_[{op, dev, isa}] = std::move(fn);
     }
-
-    // Register a backward kernel
     void registerBackwardKernel(OpType op, DeviceType dev, BackwardKernelFunc fn) {
-        backward_registry_[std::make_pair(op, dev)] = std::move(fn);
+        registerBackwardKernel(op, dev, CpuIsa::GENERIC, std::move(fn));
     }
 
-    // Retrieve a backward kernel; try (op,dev) then fall back to (op, CPU).
-    // Returns nullptr only if neither device nor CPU kernel exists.
-    BackwardKernelFunc getBackwardKernelOrNull(OpType op, DeviceType dev) {
-        auto key = std::make_pair(op, dev);
-        auto it = backward_registry_.find(key);
-        if (it != backward_registry_.end()) return it->second;
+    // Try exact (op,dev,best_isa) then degrade to AVX2 then GENERIC
+    KernelFunc getKernel(OpType op, DeviceType dev) {
+        if (dev == DeviceType::CPU) {
+            auto best = detect_best_cpu_isa();
+            for (CpuIsa isa : {best, CpuIsa::AVX2, CpuIsa::GENERIC}) {
+                auto it = forward_.find({op, dev, isa});
+                if (it != forward_.end()) return it->second;
+            }
+        }
+        // Non-CPU (e.g., CUDA) → exact, then CPU fallback (keeping your behavior)
+        auto exact = forward_.find({op, dev, CpuIsa::GENERIC});
+        if (exact != forward_.end()) return exact->second;
+        auto cpu_fallback = forward_.find({op, DeviceType::CPU, CpuIsa::GENERIC});
+        if (cpu_fallback != forward_.end()) return cpu_fallback->second;
+        throw std::runtime_error("No forward kernel registered for this op/device");
+    }
 
-        // fallback to CPU
-        auto cpu_key = std::make_pair(op, DeviceType::CPU);
-        auto it_cpu = backward_registry_.find(cpu_key);
-        if (it_cpu != backward_registry_.end()) return it_cpu->second;
-
-        // no backward kernel anywhere
-        return nullptr;
+    BackwardKernelFunc getBackwardKernel(OpType op, DeviceType dev) {
+        if (dev == DeviceType::CPU) {
+            auto best = detect_best_cpu_isa();
+            for (CpuIsa isa : {best, CpuIsa::AVX2, CpuIsa::GENERIC}) {
+                auto it = backward_.find({op, dev, isa});
+                if (it != backward_.end()) return it->second;
+            }
+        }
+        auto exact = backward_.find({op, dev, CpuIsa::GENERIC});
+        if (exact != backward_.end()) return exact->second;
+        auto cpu_fallback = backward_.find({op, DeviceType::CPU, CpuIsa::GENERIC});
+        if (cpu_fallback != backward_.end()) return cpu_fallback->second;
+        throw std::runtime_error("No backward kernel registered for this op/device");
     }
 
 private:
     KernelRegistry() = default;
-    std::map<std::pair<OpType,DeviceType>, KernelFunc> forward_registry_;
-    std::map<std::pair<OpType,DeviceType>, BackwardKernelFunc> backward_registry_;
+    std::map<DispatchKey, KernelFunc> forward_;
+    std::map<DispatchKey, BackwardKernelFunc> backward_;
 };
 
 } // namespace cppgrad

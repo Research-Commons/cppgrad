@@ -444,6 +444,7 @@
 
 #include "cppgrad/autograd/function.hpp"
 #include "cppgrad/backend/cuda_backend.hpp"
+#include "cppgrad/backend/isa/avx2.hpp"
 
 using namespace cppgrad;
 
@@ -453,6 +454,9 @@ int main() {
     KernelRegistry::instance().registerKernel(OpType::Mul, DeviceType::CPU, CPU::mulKernel);
     KernelRegistry::instance().registerKernel(OpType::Sub, DeviceType::CPU, CPU::subKernel);
     KernelRegistry::instance().registerKernel(OpType::Div, DeviceType::CPU, CPU::divKernel);
+
+    KernelRegistry::instance().registerKernel(OpType::Add, DeviceType::CPU, CpuIsa::AVX2, cppgrad::add_f32_avx2);
+    KernelRegistry::instance().registerKernel(OpType::Mul, DeviceType::CPU, CpuIsa::AVX2, cppgrad::mul_f32_avx2);
 
     KernelRegistry::instance().registerKernel(OpType::Add, DeviceType::CUDA, CUDA::addKernel);
     KernelRegistry::instance().registerKernel(OpType::Mul, DeviceType::CUDA, CUDA::mulKernel);
